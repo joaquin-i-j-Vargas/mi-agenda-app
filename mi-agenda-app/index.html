@@ -1,0 +1,2696 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mi Agenda">
+<meta name="theme-color" content="#0f1117">
+<link rel="manifest" href="manifest.json">
+<title>Mi Agenda — Sistema de Productividad</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1e2333;
+  --border: #2a3045;
+  --accent: #4f9cf9;
+  --accent2: #7c6af7;
+  --gold: #f5c842;
+  --green: #3dd68c;
+  --red: #f56565;
+  --orange: #fb923c;
+  --text: #e8eaf0;
+  --text2: #8892aa;
+  --text3: #4a5568;
+  --font-display: 'DM Serif Display', serif;
+  --font-body: 'DM Sans', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* BACKGROUND MESH */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% -10%, rgba(79,156,249,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 110%, rgba(124,106,247,0.10) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* LAYOUT */
+.app { position: relative; z-index: 1; display: flex; flex-direction: column; min-height: 100vh; }
+
+/* HEADER */
+header {
+  padding: 20px 20px 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.header-left h1 {
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: var(--text);
+  line-height: 1;
+}
+.header-left p {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 3px;
+  font-family: var(--font-mono);
+}
+.date-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--accent);
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* NAV TABS */
+.nav {
+  display: flex;
+  gap: 6px;
+  padding: 16px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav::-webkit-scrollbar { display: none; }
+.nav-btn {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.nav-btn:not(.active):hover { border-color: var(--accent); color: var(--text); }
+
+/* MAIN CONTENT */
+.content { flex: 1; padding: 16px 20px 100px; }
+
+/* SECTION */
+.section { display: none; animation: fadeIn 0.25s ease; }
+.section.active { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.card-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--text);
+}
+.card-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text2);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2px 10px;
+}
+
+/* PRIORITY BADGE */
+.priority {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  border-radius: 5px;
+  padding: 2px 7px;
+  text-transform: uppercase;
+}
+.p1 { background: rgba(245,101,101,0.15); color: var(--red); border: 1px solid rgba(245,101,101,0.3); }
+.p2 { background: rgba(251,146,60,0.15); color: var(--orange); border: 1px solid rgba(251,146,60,0.3); }
+.p3 { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.3); }
+.p4 { background: rgba(138,150,180,0.1); color: var(--text2); border: 1px solid var(--border); }
+
+/* STATUS BADGE */
+.status {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border-radius: 5px;
+  padding: 2px 7px;
+}
+.s-done { background: rgba(61,214,140,0.12); color: var(--green); border: 1px solid rgba(61,214,140,0.3); }
+.s-prog { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.2); }
+.s-pend { background: rgba(138,150,180,0.08); color: var(--text2); border: 1px solid var(--border); }
+
+/* TASK ITEM */
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.2s;
+}
+.task-item:last-child { border-bottom: none; }
+.task-item.done { opacity: 0.5; }
+
+.task-check {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  margin-top: 1px;
+}
+.task-check.checked {
+  background: var(--green);
+  border-color: var(--green);
+}
+.task-check.checked::after {
+  content: '✓';
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.task-body { flex: 1; min-width: 0; }
+.task-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.3;
+}
+.task-item.done .task-name { text-decoration: line-through; color: var(--text2); }
+.task-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 5px;
+  align-items: center;
+}
+.task-date {
+  font-size: 10px;
+  color: var(--text2);
+  font-family: var(--font-mono);
+}
+.task-recurr {
+  font-size: 10px;
+  color: var(--accent2);
+  font-family: var(--font-mono);
+}
+
+/* SUBTASK */
+.subtasks {
+  margin-top: 8px;
+  padding-left: 14px;
+  border-left: 2px solid var(--border);
+}
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 13px;
+  color: var(--text2);
+}
+.subtask-check {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.subtask-check.checked { background: var(--green); border-color: var(--green); }
+.subtask-check.checked::after { content: '✓'; color: #fff; font-size: 9px; }
+
+/* EXPAND SUBTASKS TOGGLE */
+.expand-btn {
+  font-size: 11px;
+  color: var(--accent);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: var(--font-body);
+  margin-top: 4px;
+}
+
+/* TASK EDIT/OPEN BUTTON */
+.task-open-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text2);
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  margin-top: 1px;
+}
+.task-open-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* DETAIL MODAL EXTRAS */
+.detail-section-label {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 16px 0 8px;
+}
+.subtask-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+.subtask-edit-row:last-child { border-bottom: none; }
+.subtask-edit-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text);
+}
+.subtask-del-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: color 0.15s;
+}
+.subtask-del-btn:hover { color: var(--red); }
+.add-subtask-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.add-subtask-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 13px;
+  outline: none;
+}
+.add-subtask-input:focus { border-color: var(--accent); }
+.add-subtask-btn {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.add-subtask-btn:active { opacity: 0.8; }
+.btn-danger {
+  width: 100%;
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  background: rgba(245,101,101,0.12);
+  border: 1px solid rgba(245,101,101,0.3);
+  color: var(--red);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: background 0.15s;
+}
+.btn-danger:active { background: rgba(245,101,101,0.25); }
+.btn-secondary {
+  width: 100%;
+  padding: 11px;
+  border-radius: var(--radius-sm);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: border-color 0.15s;
+}
+.btn-secondary:active { border-color: var(--accent); }
+
+/* PROGRESS BAR */
+.progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  transition: width 0.4s ease;
+}
+
+/* OBJECTIVES */
+.obj-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.obj-item:last-child { border-bottom: none; }
+.obj-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.obj-name { font-size: 14px; font-weight: 500; }
+.obj-level {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border-radius: 5px;
+  padding: 2px 8px;
+}
+.lv-dia { background: rgba(245,200,66,0.12); color: var(--gold); border: 1px solid rgba(245,200,66,0.3); }
+.lv-sem { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.2); }
+.lv-mes { background: rgba(124,106,247,0.12); color: var(--accent2); border: 1px solid rgba(124,106,247,0.3); }
+.lv-anu { background: rgba(61,214,140,0.12); color: var(--green); border: 1px solid rgba(61,214,140,0.3); }
+
+.obj-dates { font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
+.obj-progress-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text2); margin-top: 4px; }
+
+/* HABITS */
+.habit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+.habit-item:last-child { border-bottom: none; }
+.habit-streak {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.habit-streak-num {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gold);
+  line-height: 1;
+}
+.habit-streak-label {
+  font-size: 8px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.habit-body { flex: 1; }
+.habit-name { font-size: 14px; font-weight: 500; }
+.habit-meta { display: flex; gap: 6px; margin-top: 3px; align-items: center; }
+.habit-freq { font-size: 10px; color: var(--text2); font-family: var(--font-mono); }
+.habit-cat {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border-radius: 4px;
+  padding: 1px 6px;
+  background: var(--surface2);
+  color: var(--text2);
+  border: 1px solid var(--border);
+}
+.habit-done-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid var(--border);
+  background: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.habit-done-btn.done { background: var(--green); border-color: var(--green); }
+.habit-done-btn.done::after { content: '✓'; color: #fff; font-weight: 700; font-size: 14px; }
+.habit-done-btn:not(.done)::after { content: '○'; color: var(--text3); }
+
+/* ACHIEVEMENTS */
+.logro-item {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.logro-item:last-child { border-bottom: none; }
+.logro-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 5px; }
+.logro-name { font-size: 14px; font-weight: 500; flex: 1; }
+.logro-impact {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  border-radius: 5px;
+  padding: 2px 8px;
+  flex-shrink: 0;
+}
+.imp-g { background: rgba(245,200,66,0.15); color: var(--gold); border: 1px solid rgba(245,200,66,0.35); }
+.imp-m { background: rgba(79,156,249,0.12); color: var(--accent); border: 1px solid rgba(79,156,249,0.25); }
+.imp-p { background: rgba(138,150,180,0.08); color: var(--text2); border: 1px solid var(--border); }
+.imp-e { background: rgba(61,214,140,0.15); color: var(--green); border: 1px solid rgba(61,214,140,0.35); }
+.logro-meta { display: flex; gap: 8px; align-items: center; }
+.logro-date { font-size: 11px; font-family: var(--font-mono); color: var(--text2); }
+.logro-cat { font-size: 10px; color: var(--accent2); font-family: var(--font-mono); }
+.logro-feeling { font-size: 12px; color: var(--text2); margin-top: 4px; font-style: italic; }
+
+/* FILTER ROW */
+.filter-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 14px;
+}
+.filter-row::-webkit-scrollbar { display: none; }
+.filter-chip {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.filter-chip.active { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+/* DASHBOARD STATS */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+.stat-num {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label { font-size: 11px; color: var(--text2); }
+.stat-card.accent .stat-num { color: var(--accent); }
+.stat-card.green .stat-num { color: var(--green); }
+.stat-card.gold .stat-num { color: var(--gold); }
+.stat-card.purple .stat-num { color: var(--accent2); }
+
+/* ADD BUTTON FLOATING */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 20px;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(79,156,249,0.35);
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 100;
+}
+.fab:active { transform: scale(0.92); }
+
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px 20px 0 0;
+  padding: 20px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+.modal-overlay.open .modal { transform: translateY(0); }
+.modal-handle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 0 auto 18px;
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin-bottom: 18px;
+}
+
+/* FORM */
+.form-group { margin-bottom: 14px; }
+.form-label {
+  display: block;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent); }
+.form-textarea { resize: vertical; min-height: 70px; }
+.form-select option { background: var(--surface2); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+.btn-primary {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border: none;
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 6px;
+  transition: opacity 0.2s;
+}
+.btn-primary:active { opacity: 0.85; }
+
+/* SECTION TITLE */
+.section-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text);
+  margin-bottom: 14px;
+}
+
+/* EMPTY STATE */
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text2);
+  font-size: 13px;
+}
+.empty-state .icon { font-size: 36px; margin-bottom: 10px; }
+
+/* PIN LOCK SCREEN */
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+}
+.pin-overlay.hidden { display: none; }
+.pin-logo {
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.pin-subtitle {
+  font-size: 12px;
+  color: var(--text2);
+  font-family: var(--font-mono);
+  margin-bottom: 36px;
+}
+.pin-dots {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 36px;
+}
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  transition: all 0.2s;
+}
+.pin-dot.filled {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.pin-dot.error {
+  background: var(--red);
+  border-color: var(--red);
+}
+.pin-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 72px);
+  gap: 12px;
+}
+.pin-key {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.pin-key:active { background: var(--surface2); border-color: var(--accent); }
+.pin-key.del { font-size: 18px; color: var(--text2); }
+.pin-key.empty { background: transparent; border-color: transparent; cursor: default; }
+.pin-error-msg {
+  margin-top: 20px;
+  font-size: 12px;
+  color: var(--red);
+  font-family: var(--font-mono);
+  min-height: 18px;
+}
+
+/* EXPORT/IMPORT MODAL EXTRAS */
+.export-btn-row {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.btn-export {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: rgba(79,156,249,0.12);
+  border: 1px solid rgba(79,156,249,0.3);
+  color: var(--accent);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-export:active { background: rgba(79,156,249,0.25); }
+.btn-import {
+  width: 100%;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  background: rgba(61,214,140,0.10);
+  border: 1px solid rgba(61,214,140,0.3);
+  color: var(--green);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-import:active { background: rgba(61,214,140,0.22); }
+#importFileInput { display: none; }
+
+/* INSTALL BANNER */
+.install-banner {
+  background: linear-gradient(135deg, rgba(79,156,249,0.15), rgba(124,106,247,0.12));
+  border: 1px solid rgba(79,156,249,0.3);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.install-banner-icon { font-size: 28px; flex-shrink: 0; }
+.install-banner h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.install-banner p { font-size: 12px; color: var(--text2); line-height: 1.5; }
+.install-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--accent);
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.dismiss-banner {
+  font-size: 18px;
+  color: var(--text2);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 90px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--accent2);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 12px 20px;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4);
+  z-index: 999;
+  opacity: 0;
+  transition: all .3s ease;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* DRAG & DROP */
+.drag-handle {
+  width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 2px;
+  cursor: grab;
+  opacity: 0.35;
+  touch-action: none;
+}
+.drag-handle:active { cursor: grabbing; opacity: 0.8; }
+.drag-handle span {
+  display: block;
+  width: 14px;
+  height: 2px;
+  background: var(--text2);
+  border-radius: 2px;
+}
+.card.dragging {
+  opacity: 0.4;
+  border: 2px dashed var(--accent);
+  transform: scale(0.98);
+}
+.card.drag-over {
+  border-color: var(--accent2);
+  background: rgba(124,106,247,.08);
+  transform: scale(1.01);
+  transition: transform 0.15s;
+}
+.obj-item.dragging { opacity: 0.4; }
+.obj-item.drag-over { background: rgba(124,106,247,.08); border-radius: 8px; }
+</style>
+</head>
+<body>
+<!-- PIN LOCK OVERLAY -->
+<div class="pin-overlay" id="pinOverlay">
+  <div class="pin-logo">Mi Agenda</div>
+  <div class="pin-subtitle">Ingresá tu PIN para continuar</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot" id="pd0"></div>
+    <div class="pin-dot" id="pd1"></div>
+    <div class="pin-dot" id="pd2"></div>
+  </div>
+  <div class="pin-keypad">
+    <button class="pin-key" onclick="pinPress('1')">1</button>
+    <button class="pin-key" onclick="pinPress('2')">2</button>
+    <button class="pin-key" onclick="pinPress('3')">3</button>
+    <button class="pin-key" onclick="pinPress('4')">4</button>
+    <button class="pin-key" onclick="pinPress('5')">5</button>
+    <button class="pin-key" onclick="pinPress('6')">6</button>
+    <button class="pin-key" onclick="pinPress('7')">7</button>
+    <button class="pin-key" onclick="pinPress('8')">8</button>
+    <button class="pin-key" onclick="pinPress('9')">9</button>
+    <button class="pin-key empty"></button>
+    <button class="pin-key" onclick="pinPress('0')">0</button>
+    <button class="pin-key del" onclick="pinDel()">⌫</button>
+  </div>
+  <div class="pin-error-msg" id="pinError"></div>
+</div>
+
+<input type="file" id="importFileInput" accept=".json" onchange="handleImportFile(event)" />
+
+<div class="app">
+  <header>
+    <div class="header-left">
+      <h1>Mi Agenda</h1>
+      <p id="headerDate">cargando...</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="openExportImport()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text2);font-size:16px;cursor:pointer;line-height:1" title="Exportar / Importar">💾</button>
+      <div class="date-badge" id="headerClock">--:--</div>
+    </div>
+  </header>
+
+  <nav class="nav">
+    <button class="nav-btn active" onclick="showSection('dashboard', this)">⚡ Hoy</button>
+    <button class="nav-btn" onclick="showSection('tareas', this)">✅ Tareas</button>
+    <button class="nav-btn" onclick="showSection('objetivos', this)">🎯 Objetivos</button>
+    <button class="nav-btn" onclick="showSection('habitos', this)">🔁 Hábitos</button>
+    <button class="nav-btn" onclick="showSection('logros', this)">🏆 Logros</button>
+  </nav>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div id="dashboard" class="section active">
+      <div id="installBanner" class="install-banner" style="display:none">
+        <div class="install-banner-icon">📲</div>
+        <div style="flex:1">
+          <h3>Instalá la app en tu Android</h3>
+          <p>Tocá el botón de abajo para agregar Mi Agenda a tu pantalla de inicio como una app real.</p>
+          <button class="install-btn" id="installBtn">Instalar en pantalla de inicio</button>
+        </div>
+        <button class="dismiss-banner" onclick="dismissBanner()">✕</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card accent">
+          <div class="stat-num" id="statPendientes">0</div>
+          <div class="stat-label">P1 + Mi Día pendientes</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-num" id="statCompletadas">0</div>
+          <div class="stat-label">Completadas</div>
+        </div>
+        <div class="stat-card gold">
+          <div class="stat-num" id="statHabitos">0</div>
+          <div class="stat-label">Hábitos completados</div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-num" id="statLogros">0</div>
+          <div class="stat-label">Logros esta semana</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⚡ Mi Día</span>
+          <span class="card-count" id="dashMiDiaCount">0</span>
+        </div>
+        <div id="dashMiDiaList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🟠 Tareas P2</span>
+          <span class="card-count" id="dashPrioCount">0</span>
+        </div>
+        <div id="dashPrioList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Hábitos de hoy</span>
+        </div>
+        <div id="dashHabitosList"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Objetivos de la semana</span>
+        </div>
+        <div id="dashObjetivosList"></div>
+      </div>
+    </div>
+
+    <!-- TAREAS -->
+    <div id="tareas" class="section">
+      <p class="section-title">Proyectos & Tareas</p>
+      <div class="filter-row" id="tareasFilter">
+        <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+        <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
+        <div class="filter-chip" onclick="filterTareas('progreso', this)">En progreso</div>
+        <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
+        <div class="filter-chip" onclick="filterTareas('p1', this)">🔴 P1</div>
+        <div class="filter-chip" onclick="filterTareas('p2', this)">🟠 P2</div>
+      </div>
+      <div id="tareasLista"></div>
+    </div>
+
+    <!-- OBJETIVOS -->
+    <div id="objetivos" class="section">
+      <p class="section-title">Objetivos</p>
+      <div class="filter-row">
+        <div class="filter-chip active" onclick="filterObjetivos('todos', this)">Todos</div>
+        <div class="filter-chip" onclick="filterObjetivos('Diario', this)">Diarios</div>
+        <div class="filter-chip" onclick="filterObjetivos('Semanal', this)">Semanales</div>
+        <div class="filter-chip" onclick="filterObjetivos('Mensual', this)">Mensuales</div>
+        <div class="filter-chip" onclick="filterObjetivos('Anual', this)">Anuales</div>
+      </div>
+      <div id="objetivosLista"></div>
+    </div>
+
+    <!-- HABITOS -->
+    <div id="habitos" class="section">
+      <p class="section-title">Hábitos</p>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Registro de hoy</span>
+          <span class="card-count" id="habitosCount">0/0</span>
+        </div>
+        <div id="habitosLista"></div>
+      </div>
+    </div>
+
+    <!-- LOGROS -->
+    <div id="logros" class="section">
+      <p class="section-title">Registro de Logros</p>
+      <div class="filter-row">
+        <div class="filter-chip active" onclick="filterLogros('todos', this)">Todos</div>
+        <div class="filter-chip" onclick="filterLogros('hoy', this)">Hoy</div>
+        <div class="filter-chip" onclick="filterLogros('semana', this)">Esta semana</div>
+        <div class="filter-chip" onclick="filterLogros('mes', this)">Este mes</div>
+        <div class="filter-chip" onclick="filterLogros('Grande', this)">⭐ Grandes</div>
+        <div class="filter-chip" onclick="filterLogros('Extraordinario', this)">🏆 Extraordinarios</div>
+      </div>
+      <div id="logrosLista"></div>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end app -->
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" onclick="openAddModal()">+</button>
+
+<!-- TOAST -->
+<div class="toast" id="toastEl"></div>
+
+<!-- MODAL ADD -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modalContent">
+    <div class="modal-handle"></div>
+    <div id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA STORE (localStorage)
+// ============================================================
+const KEYS = { tareas: 'ag_tareas', objetivos: 'ag_objetivos', habitos: 'ag_habitos', logros: 'ag_logros', habits_today: 'ag_habits_today' };
+
+function load(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+function save(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// ============================================================
+// SEED DATA (first run)
+// ============================================================
+function seedData() {
+  if (localStorage.getItem('ag_seeded')) return;
+  const today = todayStr();
+
+  save(KEYS.tareas, [
+    { id: uid(), nombre: 'Programar una Agenda Digital', tipo: 'Proyecto', estado: 'progreso', prioridad: 'P1', fecha: today, recurrente: false, frecuencia: '', subtareas: [
+        { id: uid(), nombre: 'Hablar con Claude', done: true },
+        { id: uid(), nombre: 'Ver sistema recomendable', done: true },
+        { id: uid(), nombre: 'Implementar en Notion', done: false },
+        { id: uid(), nombre: 'Cargar tareas de la agenda', done: false },
+    ], notas: '' },
+    { id: uid(), nombre: 'Certificación PBI', tipo: 'Tarea', estado: 'pendiente', prioridad: 'P1', fecha: today, recurrente: false, frecuencia: '', subtareas: [], notas: '' },
+    { id: uid(), nombre: 'Llamar al banco', tipo: 'Tarea', estado: 'pendiente', prioridad: 'P2', fecha: today, recurrente: true, frecuencia: 'Semanal', subtareas: [], notas: '' },
+    { id: uid(), nombre: 'Organizar ropa', tipo: 'Tarea', estado: 'completada', prioridad: 'P3', fecha: today, recurrente: false, frecuencia: '', subtareas: [], notas: '' },
+    { id: uid(), nombre: 'Trampa moscas', tipo: 'Tarea', estado: 'pendiente', prioridad: 'P4', fecha: today, recurrente: true, frecuencia: 'Semanal', subtareas: [], notas: '' },
+  ]);
+
+  save(KEYS.objetivos, [
+    { id: uid(), nombre: 'Certificarme en Programación', nivel: 'Anual', estado: 'Activo', fechaInicio: '2026-01-01', fechaLimite: '2026-12-31', progreso: 25, notas: '' },
+    { id: uid(), nombre: 'Implementar sistema de agenda digital', nivel: 'Mensual', estado: 'Activo', fechaInicio: '2026-05-01', fechaLimite: '2026-05-31', progreso: 60, notas: '' },
+    { id: uid(), nombre: 'Configurar Notion y app', nivel: 'Semanal', estado: 'Activo', fechaInicio: '2026-05-04', fechaLimite: '2026-05-10', progreso: 70, notas: '' },
+    { id: uid(), nombre: 'Repasar 1 módulo de curso hoy', nivel: 'Diario', estado: 'Activo', fechaInicio: today, fechaLimite: today, progreso: 0, notas: '' },
+  ]);
+
+  save(KEYS.habitos, [
+    { id: uid(), nombre: 'Revisar agenda del día', frecuencia: 'Diario', horario: 'Mañana', racha: 5, record: 12, activo: true, categoria: 'Productividad' },
+    { id: uid(), nombre: 'Completar al menos 1 tarea P1', frecuencia: 'Diario', horario: 'Durante el día', racha: 3, record: 8, activo: true, categoria: 'Trabajo' },
+    { id: uid(), nombre: 'Registrar un logro del día', frecuencia: 'Diario', horario: 'Noche', racha: 7, record: 7, activo: true, categoria: 'Personal' },
+    { id: uid(), nombre: 'Revisión semanal de objetivos', frecuencia: 'Semanal', horario: 'Domingo', racha: 2, record: 4, activo: true, categoria: 'Productividad' },
+    { id: uid(), nombre: 'Estudio / Curso online', frecuencia: 'Diario', horario: '18:30', racha: 4, record: 10, activo: true, categoria: 'Estudio' },
+  ]);
+
+  save(KEYS.logros, [
+    { id: uid(), nombre: 'Aprobé el examen de BDI', fecha: '2024-09-12', categoria: 'Estudio', impacto: 'Grande', sentimiento: 'Muy orgulloso, fue un desafío', objetivo: 'Cert. PBI' },
+    { id: uid(), nombre: 'Llamé al banco y resolví el tema pendiente', fecha: '2024-09-09', categoria: 'Personal', impacto: 'Mediano', sentimiento: 'Alivio total', objetivo: 'Llamar Bco.' },
+    { id: uid(), nombre: 'Organicé toda mi ropa', fecha: '2024-09-10', categoria: 'Personal', impacto: 'Pequeño', sentimiento: 'Ambiente más ordenado', objetivo: '' },
+    { id: uid(), nombre: 'Arreglé la puerta del centro', fecha: '2024-09-15', categoria: 'Personal', impacto: 'Mediano', sentimiento: 'Satisfecho', objetivo: '' },
+    { id: uid(), nombre: 'Implementé sistema digital de agenda con Claude', fecha: today, categoria: 'Productividad', impacto: 'Grande', sentimiento: '¡Motivadísimo!', objetivo: 'Programar una Agenda' },
+  ]);
+
+  localStorage.setItem('ag_seeded', '1');
+}
+
+// ============================================================
+// UTILITIES
+// ============================================================
+function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+
+function fmtDate(d) {
+  if (!d) return '';
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+}
+
+function startOfWeek() {
+  const d = new Date(); d.setHours(0,0,0,0);
+  const day = d.getDay(); // 0=Sun
+  d.setDate(d.getDate() - day);
+  return d;
+}
+
+function isThisWeek(dateStr) {
+  if (!dateStr) return false;
+  const parts = dateStr.split('-');
+  const d = new Date(+parts[0], +parts[1]-1, +parts[2]);
+  const sw = startOfWeek();
+  const ew = new Date(sw); ew.setDate(ew.getDate() + 7);
+  return d >= sw && d < ew;
+}
+
+function isThisMonth(dateStr) {
+  if (!dateStr) return false;
+  const now = new Date();
+  const parts = dateStr.split('-');
+  const d = new Date(+parts[0], +parts[1]-1, +parts[2]);
+  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+function isToday(dateStr) {
+  return dateStr === todayStr();
+}
+
+function mostrarToast(msg) {
+  const el = document.getElementById('toastEl');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function updateClock() {
+  const now = new Date();
+  const days = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+  const months = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  document.getElementById('headerDate').textContent = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+  document.getElementById('headerClock').textContent = now.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+let currentSection = 'dashboard';
+function showSection(name, btn) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  currentSection = name;
+  renderSection(name);
+}
+
+function renderSection(name) {
+  if (name === 'dashboard') renderDashboard();
+  else if (name === 'tareas') renderTareas();
+  else if (name === 'objetivos') renderObjetivos();
+  else if (name === 'habitos') renderHabitos();
+  else if (name === 'logros') renderLogros();
+}
+
+// ============================================================
+// DASHBOARD
+// ============================================================
+function renderDashboard() {
+  const tareas = load(KEYS.tareas);
+  const habitos = load(KEYS.habitos);
+  const logros = load(KEYS.logros);
+  const habitsToday = load(KEYS.habits_today);
+
+  const pendientes = tareas.filter(t => t.estado !== 'completada');
+  const completadas = tareas.filter(t => t.estado === 'completada');
+  const habitosDone = habitsToday.filter(h => h.done && isToday(h.fecha)).length;
+  const logrosSemana = logros.filter(l => isThisWeek(l.fecha)).length;
+
+  const miDiaCount = tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').length;
+  const p1Count = tareas.filter(t => t.prioridad === 'P1' && t.estado !== 'completada').length;
+  const miDiaSet = new Set(tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').map(t => t.id));
+  const totalHoy = tareas.filter(t => (t.prioridad === 'P1' || miDiaSet.has(t.id)) && t.estado !== 'completada').length;
+  document.getElementById('statPendientes').textContent = totalHoy;
+  document.getElementById('statCompletadas').textContent = completadas.length;
+  document.getElementById('statHabitos').textContent = `${habitosDone}/${habitos.filter(h=>h.activo).length}`;
+  document.getElementById('statLogros').textContent = logrosSemana;
+
+  // Mi Día — manuales + P1 automáticas (sin duplicados)
+  const miDiaIds = new Set(tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').map(t => t.id));
+  const p1Auto = tareas.filter(t => t.prioridad === 'P1' && t.estado !== 'completada' && !miDiaIds.has(t.id));
+  const miDia = [
+    ...tareas.filter(t => miDiaIds.has(t.id)),
+    ...p1Auto
+  ].slice(0, 6);
+  document.getElementById('dashMiDiaCount').textContent = miDia.length;
+  document.getElementById('dashMiDiaList').innerHTML = miDia.length
+    ? miDia.map(t => taskItemHTML(t, true)).join('')
+    : '<div class="empty-state" style="padding:16px"><div class="icon" style="font-size:24px">📅</div>Editá una tarea y activá "Incluir en Mi Día"</div>';
+
+  // Priority tasks P2 (P1 ya están en Mi Día)
+  const prio = tareas.filter(t => t.prioridad === 'P2' && t.estado !== 'completada').slice(0, 4);
+  document.getElementById('dashPrioCount').textContent = prio.length;
+  document.getElementById('dashPrioList').innerHTML = prio.length
+    ? prio.map(t => taskItemHTML(t, true)).join('')
+    : '<div class="empty-state" style="padding:12px"><div class="icon" style="font-size:22px">✨</div>Sin tareas P2 pendientes</div>';
+
+  // Habitos
+  const h = habitos.filter(x => x.activo && x.frecuencia === 'Diario').slice(0, 4);
+  document.getElementById('dashHabitosList').innerHTML = h.map(hab => {
+    const ht = habitsToday.find(x => x.id === hab.id && isToday(x.fecha));
+    const done = ht?.done || false;
+    return `<div class="habit-item">
+      <div class="habit-streak"><div class="habit-streak-num">${hab.racha}</div><div class="habit-streak-label">días</div></div>
+      <div class="habit-body"><div class="habit-name">${hab.nombre}</div><div class="habit-meta"><span class="habit-freq">${hab.horario}</span></div></div>
+      <button class="habit-done-btn ${done ? 'done' : ''}" onclick="toggleHabitToday('${hab.id}')"></button>
+    </div>`;
+  }).join('') || '<div class="empty-state"><div class="icon">🔁</div>Agregá hábitos primero</div>';
+
+  // Objetivos semanales
+  const obj = load(KEYS.objetivos).filter(o => o.nivel === 'Semanal' && o.estado === 'Activo');
+  document.getElementById('dashObjetivosList').innerHTML = obj.map(o => objItemHTML(o)).join('')
+    || '<div class="empty-state"><div class="icon">🎯</div>Agregá objetivos semanales</div>';
+}
+
+// ============================================================
+// TAREAS
+// ============================================================
+let tareasFilter = 'todas';
+function filterTareas(f, el) {
+  tareasFilter = f;
+  document.querySelectorAll('#tareasFilter .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderTareas();
+}
+
+function renderTareas() {
+  renderTareasFilterBar();
+  let data = load(KEYS.tareas);
+  if (tareasFilter === 'pendiente') data = data.filter(t => t.estado === 'pendiente');
+  else if (tareasFilter === 'progreso') data = data.filter(t => t.estado === 'progreso');
+  else if (tareasFilter === 'completada') data = data.filter(t => t.estado === 'completada');
+  else if (tareasFilter === 'p1') data = data.filter(t => t.prioridad === 'P1');
+  else if (tareasFilter === 'p2') data = data.filter(t => t.prioridad === 'P2');
+  else if (tareasFilter.startsWith('cat:')) {
+    const cat = tareasFilter.slice(4);
+    data = data.filter(t => t.tipo === cat);
+  }
+
+  // Separar pendientes/en progreso de completadas
+  const activas = data.filter(t => t.estado !== 'completada');
+  const completadas = data.filter(t => t.estado === 'completada');
+
+  const lista = document.getElementById('tareasLista');
+
+  if (!data.length) {
+    lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No hay tareas con este filtro</div>';
+    return;
+  }
+
+  const renderCards = arr => arr.map(t => `
+    <div class="card" data-id="${t.id}" draggable="true">
+      <div class="drag-handle" title="Mantené apretado para mover">
+        <span></span><span></span><span></span>
+      </div>
+      <div style="flex:1;min-width:0">${taskItemHTML(t, false)}</div>
+    </div>`).join('');
+
+  let html = renderCards(activas);
+
+  if (completadas.length) {
+    const hoy = completadas.filter(t => isToday(t.fecha));
+    const semana = completadas.filter(t => !isToday(t.fecha) && isThisWeek(t.fecha));
+    const mes = completadas.filter(t => !isThisWeek(t.fecha) && isThisMonth(t.fecha));
+    const anterior = completadas.filter(t => !isThisMonth(t.fecha));
+
+    const divider = (label, count) => `
+      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 6px">
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+        <span style="font-size:10px;font-family:var(--font-mono);color:var(--text2);white-space:nowrap">✓ ${label} (${count})</span>
+        <div style="flex:1;height:1px;background:var(--border)"></div>
+      </div>`;
+
+    if (hoy.length)    { html += divider('Hoy', hoy.length);           html += renderCards(hoy); }
+    if (semana.length) { html += divider('Esta semana', semana.length); html += renderCards(semana); }
+    if (mes.length)    { html += divider('Este mes', mes.length);       html += renderCards(mes); }
+
+    // Agrupar "anteriores" por mes/año específico
+    if (anterior.length) {
+      // Obtener meses únicos ordenados de más reciente a más antiguo
+      const mesesMap = {};
+      const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+      anterior.forEach(t => {
+        if (!t.fecha) return;
+        const [y, m] = t.fecha.split('-');
+        const key = `${y}-${m}`;
+        if (!mesesMap[key]) mesesMap[key] = { label: `${mesesNombres[+m-1]} ${y}`, tareas: [] };
+        mesesMap[key].tareas.push(t);
+      });
+      // Ordenar de más reciente a más antiguo
+      Object.keys(mesesMap).sort((a,b) => b.localeCompare(a)).forEach(key => {
+        const { label, tareas } = mesesMap[key];
+        html += divider(label, tareas.length);
+        html += renderCards(tareas);
+      });
+    }
+  }
+
+  lista.innerHTML = html;
+
+  lista.querySelectorAll('.card').forEach(card => {
+    card.style.display = 'flex';
+    card.style.alignItems = 'flex-start';
+    card.style.gap = '4px';
+    card.style.padding = '12px 12px 12px 8px';
+  });
+
+  if (tareasFilter === 'todas') initDragTareas();
+}
+
+function taskItemHTML(t, compact) {
+  const donePct = t.subtareas.length
+    ? Math.round(t.subtareas.filter(s => s.done).length / t.subtareas.length * 100)
+    : (t.estado === 'completada' ? 100 : 0);
+
+  const statusClass = t.estado === 'completada' ? 's-done' : t.estado === 'progreso' ? 's-prog' : 's-pend';
+  const statusLabel = t.estado === 'completada' ? 'Completada' : t.estado === 'progreso' ? 'En progreso' : 'Pendiente';
+  const prioClass = { P1: 'p1', P2: 'p2', P3: 'p3', P4: 'p4' }[t.prioridad] || 'p4';
+
+  const subtasksHTML = (!compact && t.subtareas.length) ? `
+    <div class="subtasks" id="sub_${t.id}">
+      ${t.subtareas.map(s => `
+        <div class="subtask-item">
+          <div class="subtask-check ${s.done ? 'checked' : ''}" onclick="event.stopPropagation(); toggleSubtask('${t.id}','${s.id}')"></div>
+          <span style="${s.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${s.nombre}</span>
+        </div>
+      `).join('')}
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${donePct}%"></div></div>
+  ` : '';
+
+  return `
+    <div class="task-item ${t.estado === 'completada' ? 'done' : ''}">
+      <div class="task-check ${t.estado === 'completada' ? 'checked' : ''}" onclick="toggleTarea('${t.id}')"></div>
+      <div class="task-body" onclick="openTareaDetail('${t.id}')" style="cursor:pointer">
+        <div class="task-name">${t.nombre}</div>
+        <div class="task-meta">
+          <span class="priority ${prioClass}">${t.prioridad}</span>
+          <span class="status ${statusClass}">${statusLabel}</span>
+          ${t.esObjetivo ? `<span style="font-size:10px;font-family:var(--font-mono);background:rgba(124,106,247,.15);color:var(--accent2);border:1px solid rgba(124,106,247,.35);border-radius:5px;padding:2px 7px">🎯 Objetivo</span>` : ''}
+          ${t.fecha ? `<span class="task-date">${fmtDate(t.fecha)}</span>` : ''}
+          ${t.recurrente ? `<span class="task-recurr">↻ ${t.frecuencia}</span>` : ''}
+        </div>
+        ${subtasksHTML}
+      </div>
+    </div>
+  `;
+}
+
+function toggleTarea(id) {
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === id);
+  if (!t) return;
+  const wasCompletada = t.estado === 'completada';
+  t.estado = wasCompletada ? 'pendiente' : 'completada';
+  save(KEYS.tareas, data);
+
+  // Si es objetivo y se acaba de completar → registrar en Logros automáticamente
+  if (!wasCompletada && t.esObjetivo) {
+    const impactoMap = { P1: 'Extraordinario', P2: 'Grande', P3: 'Mediano', P4: 'Pequeño' };
+    const logros = load(KEYS.logros);
+    // Evitar duplicado si ya existe un logro con el mismo id de origen
+    if (!logros.find(l => l.origenTareaId === t.id)) {
+      logros.unshift({
+        id: uid(),
+        nombre: t.nombre,
+        fecha: todayStr(),
+        categoria: 'Objetivo cumplido',
+        impacto: impactoMap[t.prioridad] || 'Grande',
+        sentimiento: '',
+        objetivo: t.nombre,
+        origenTareaId: t.id,
+      });
+      save(KEYS.logros, logros);
+      // Notificación visual breve
+      mostrarToast('🏆 ¡Objetivo cumplido! Registrado en Logros.');
+    }
+  }
+  renderSection(currentSection);
+}
+
+function toggleSubtaskAndSave(tareaId, subId) {
+  // Toggle and save immediately, then refresh just the row in modal
+  toggleSubtask(tareaId, subId);
+  // Refresh the row visually in the modal without closing it
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === tareaId);
+  if (!t) return;
+  const s = t.subtareas.find(x => x.id === subId);
+  if (!s) return;
+  const row = document.getElementById('srow_' + subId);
+  if (row) {
+    row.querySelector('.subtask-check').className = 'subtask-check' + (s.done ? ' checked' : '');
+    row.querySelector('.subtask-edit-name').style.cssText = s.done ? 'text-decoration:line-through;color:var(--text2)' : '';
+  }
+}
+
+function toggleSubtask(tareaId, subId) {
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === tareaId);
+  if (t) {
+    const s = t.subtareas.find(x => x.id === subId);
+    if (s) {
+      s.done = !s.done;
+      const allDone = t.subtareas.every(x => x.done);
+      if (allDone) t.estado = 'completada';
+      else if (t.subtareas.some(x => x.done)) t.estado = 'progreso';
+      else t.estado = 'pendiente';
+      save(KEYS.tareas, data);
+      renderSection(currentSection);
+    }
+  }
+}
+
+// ============================================================
+// OBJETIVOS
+// ============================================================
+let objetivosFilter = 'todos';
+function filterObjetivos(f, el) {
+  objetivosFilter = f;
+  document.querySelectorAll('#objetivos .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderObjetivos();
+}
+
+function renderObjetivos() {
+  let data = load(KEYS.objetivos);
+  if (objetivosFilter !== 'todos') data = data.filter(o => o.nivel === objetivosFilter);
+
+  const lista = document.getElementById('objetivosLista');
+  if (!data.length) {
+    lista.innerHTML = '<div class="empty-state"><div class="icon">🎯</div>No hay objetivos con este filtro</div>';
+    return;
+  }
+  lista.innerHTML = `<div class="card" id="objCard">
+    ${data.map(o => `
+      <div class="obj-item" data-id="${o.id}" style="display:flex;align-items:flex-start;gap:6px;cursor:default">
+        <div class="drag-handle" title="Mantené apretado para mover" style="margin-top:4px">
+          <span></span><span></span><span></span>
+        </div>
+        <div style="flex:1;min-width:0" onclick="openEditObjetivo('${o.id}')">${objItemInnerHTML(o)}</div>
+      </div>`).join('')}
+  </div>`;
+
+  if (objetivosFilter === 'todos') initDragObjetivos();
+}
+
+function objItemInnerHTML(o) {
+  const lvClass = { Diario: 'lv-dia', Semanal: 'lv-sem', Mensual: 'lv-mes', Anual: 'lv-anu' }[o.nivel] || 'lv-sem';
+  const estadoColor = o.estado === 'Cumplido' ? 'color:var(--green)' : o.estado === 'Abandonado' ? 'color:var(--red)' : 'color:var(--text2)';
+  return `
+    <div class="obj-header">
+      <span class="obj-name">${o.nombre}</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="obj-level ${lvClass}">${o.nivel}</span>
+      </div>
+    </div>
+    <div class="obj-progress-label">
+      <span class="obj-dates">${fmtDate(o.fechaInicio)} → ${fmtDate(o.fechaLimite)}</span>
+      <span style="${estadoColor}">${o.estado} · ${o.progreso}%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${o.progreso}%"></div></div>
+  `;
+}
+
+function objItemHTML(o) {
+  const lvClass = { Diario: 'lv-dia', Semanal: 'lv-sem', Mensual: 'lv-mes', Anual: 'lv-anu' }[o.nivel] || 'lv-sem';
+  const estadoColor = o.estado === 'Cumplido' ? 'color:var(--green)' : o.estado === 'Abandonado' ? 'color:var(--red)' : 'color:var(--text2)';
+  return `
+    <div class="obj-item" style="cursor:pointer" onclick="openEditObjetivo('${o.id}')">
+      <div class="obj-header">
+        <span class="obj-name">${o.nombre}</span>
+        <span class="obj-level ${lvClass}">${o.nivel}</span>
+      </div>
+      <div class="obj-progress-label">
+        <span class="obj-dates">${fmtDate(o.fechaInicio)} → ${fmtDate(o.fechaLimite)}</span>
+        <span style="${estadoColor}">${o.estado} · ${o.progreso}%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${o.progreso}%"></div></div>
+    </div>
+  `;
+}
+
+// ============================================================
+// HABITOS
+// ============================================================
+function renderHabitos() {
+  checkMidnightReset();
+  const data = load(KEYS.habitos).filter(h => h.activo);
+  const habitsToday = load(KEYS.habits_today);
+  const done = data.filter(h => habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done)).length;
+  document.getElementById('habitosCount').textContent = `${done}/${data.length}`;
+  const catColors = { Estudio: 'color:var(--accent)', Salud: 'color:var(--green)', Trabajo: 'color:var(--orange)', Personal: 'color:var(--accent2)', Productividad: 'color:var(--gold)' };
+  const lista = document.getElementById('habitosLista');
+  lista.innerHTML = data.length
+    ? data.map(h => {
+        const isDone = !!habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done);
+        return '<div class="habit-item">' +
+          '<div class="habit-streak" style="' + (isDone ? 'border-color:var(--green)' : '') + '">' +
+            '<div class="habit-streak-num" style="' + (isDone ? 'color:var(--green)' : '') + '">' + h.racha + '</div>' +
+            '<div class="habit-streak-label">días</div></div>' +
+          '<div class="habit-body" onclick="openEditHabito(\'' + h.id + '\')" style="cursor:pointer">' +
+            '<div class="habit-name">' + h.nombre + '</div>' +
+            '<div class="habit-meta">' +
+              '<span class="habit-freq">' + h.frecuencia + ' · ' + h.horario + '</span>' +
+              '<span class="habit-cat" style="' + (catColors[h.categoria]||'') + '">' + h.categoria + '</span>' +
+              '<span style="font-size:10px;color:var(--text2);font-family:var(--font-mono)">Récord: ' + h.record + '</span>' +
+            '</div></div>' +
+          '<button class="habit-done-btn ' + (isDone ? 'done' : '') + '" onclick="toggleHabitToday(\'' + h.id + '\')"></button>' +
+        '</div>';
+      }).join('')
+    : '<div class="empty-state"><div class="icon">🔁</div>No hay hábitos activos</div>';
+}
+
+function toggleHabitToday(id) {
+  const habitsToday = load(KEYS.habits_today);
+  const today = todayStr();
+  const existing = habitsToday.find(x => x.id === id && x.fecha === today);
+  const habitos = load(KEYS.habitos);
+  const h = habitos.find(x => x.id === id);
+  if (existing) {
+    const wasDone = existing.done;
+    existing.done = !wasDone;
+    if (wasDone && h) { h.racha = Math.max(0, h.racha - 1); save(KEYS.habitos, habitos); }
+    if (!wasDone && h) { h.racha += 1; if (h.racha > h.record) h.record = h.racha; save(KEYS.habitos, habitos); }
+  } else {
+    habitsToday.push({ id, fecha: today, done: true });
+    if (h) { h.racha += 1; if (h.racha > h.record) h.record = h.racha; save(KEYS.habitos, habitos); }
+  }
+  save(KEYS.habits_today, habitsToday);
+  renderSection(currentSection);
+}
+
+function checkMidnightReset() {
+  const lastDate = localStorage.getItem('ag_last_active_date');
+  const today = todayStr();
+  if (lastDate && lastDate !== today) {
+    const habitos = load(KEYS.habitos);
+    const habitsYesterday = load(KEYS.habits_today).filter(x => x.fecha === lastDate);
+    let changed = false;
+    habitos.forEach(h => {
+      if (h.frecuencia === 'Diario') {
+        const completadoAyer = habitsYesterday.find(x => x.id === h.id && x.done);
+        if (!completadoAyer && h.racha > 0) { h.racha = 0; changed = true; }
+      }
+    });
+    if (changed) save(KEYS.habitos, habitos);
+    mostrarToast('🌅 Nuevo dia! Los habitos se reiniciaron.');
+  }
+  localStorage.setItem('ag_last_active_date', today);
+}
+
+function openEditHabito(id) {
+  const data = load(KEYS.habitos);
+  const h = data.find(x => x.id === id);
+  if (!h) return;
+  const opt = (v, cur) => '<option value="' + v + '" ' + (cur === v ? 'selected' : '') + '>' + v + '</option>';
+  document.getElementById('modalBody').innerHTML =
+    '<div class="modal-title">✎ Editar Habito</div>' +
+    '<div class="form-group"><label class="form-label">Nombre *</label>' +
+    '<input class="form-input" id="eh_nombre" value="' + (h.nombre||'').replace(/"/g,'&quot;') + '" /></div>' +
+    '<div class="form-row">' +
+      '<div class="form-group"><label class="form-label">Frecuencia</label>' +
+      '<select class="form-select" id="eh_freq">' + ['Diario','Semanal','Lunes a Viernes'].map(v => opt(v, h.frecuencia)).join('') + '</select></div>' +
+      '<div class="form-group"><label class="form-label">Categoria</label>' +
+      '<select class="form-select" id="eh_cat">' + ['Personal','Salud','Estudio','Trabajo','Productividad'].map(v => opt(v, h.categoria)).join('') + '</select></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Horario sugerido</label>' +
+    '<input class="form-input" id="eh_hora" value="' + (h.horario||'') + '" placeholder="Ej: Manana, 18:30" /></div>' +
+    '<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:14px">' +
+      '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+        '<span style="font-size:12px;color:var(--text2);font-family:var(--font-mono)">Racha actual</span>' +
+        '<span style="font-size:12px;color:var(--gold);font-family:var(--font-mono);font-weight:600">' + h.racha + ' dias 🔥</span></div>' +
+      '<div style="display:flex;justify-content:space-between">' +
+        '<span style="font-size:12px;color:var(--text2);font-family:var(--font-mono)">Record</span>' +
+        '<span style="font-size:12px;color:var(--green);font-family:var(--font-mono);font-weight:600">' + h.record + ' dias 🏆</span></div>' +
+    '</div>' +
+    '<div class="form-group" style="display:flex;align-items:center;gap:10px">' +
+      '<input type="checkbox" id="eh_activo" ' + (h.activo ? 'checked' : '') + ' style="width:18px;height:18px;accent-color:var(--accent)">' +
+      '<label class="form-label" style="margin:0">Habito activo</label></div>' +
+    '<button class="btn-primary" style="margin-top:10px" onclick="saveEditHabito(\'' + h.id + '\')">💾 Guardar cambios</button>' +
+    '<button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"' +
+      ' onclick="if(confirm(\'¿Eliminar este habito?\')){save(KEYS.habitos,load(KEYS.habitos).filter(x=>x.id!==\'' + h.id + '\'));closeModal();renderSection(currentSection);}">🗑 Eliminar habito</button>' +
+    '<button class="btn-secondary" onclick="closeModal()">Cancelar</button>';
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function saveEditHabito(id) {
+  const nombre = document.getElementById('eh_nombre').value.trim();
+  if (!nombre) return alert('El nombre no puede estar vacio');
+  const data = load(KEYS.habitos);
+  const idx = data.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  data[idx] = { ...data[idx], nombre,
+    frecuencia: document.getElementById('eh_freq').value,
+    categoria: document.getElementById('eh_cat').value,
+    horario: document.getElementById('eh_hora').value || 'Sin horario',
+    activo: document.getElementById('eh_activo').checked };
+  save(KEYS.habitos, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+// ============================================================
+// LOGROS
+// ============================================================
+let logrosFilter = 'todos';
+function filterLogros(f, el) {
+  logrosFilter = f;
+  document.querySelectorAll('#logros .filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderLogros();
+}
+
+function renderLogros() {
+  let data = load(KEYS.logros).sort((a,b) => b.fecha.localeCompare(a.fecha));
+  if (logrosFilter === 'hoy') data = data.filter(l => isToday(l.fecha));
+  else if (logrosFilter === 'semana') data = data.filter(l => isThisWeek(l.fecha));
+  else if (logrosFilter === 'mes') data = data.filter(l => isThisMonth(l.fecha));
+  else if (logrosFilter === 'Grande') data = data.filter(l => l.impacto === 'Grande');
+  else if (logrosFilter === 'Extraordinario') data = data.filter(l => l.impacto === 'Extraordinario');
+
+  document.getElementById('logrosLista').innerHTML = data.length
+    ? `<div class="card">${data.map(l => {
+        const impClass = { Grande: 'imp-g', Mediano: 'imp-m', Pequeño: 'imp-p', Extraordinario: 'imp-e' }[l.impacto] || 'imp-p';
+        return `
+          <div class="logro-item" onclick="openEditLogro('${l.id}')" style="cursor:pointer">
+            <div class="logro-header">
+              <span class="logro-name">${l.nombre}</span>
+              <span class="logro-impact ${impClass}">${l.impacto}</span>
+            </div>
+            <div class="logro-meta">
+              <span class="logro-date">📅 ${fmtDate(l.fecha)}</span>
+              <span class="logro-cat">${l.categoria}</span>
+              ${l.origenTareaId ? `<span style="font-size:10px;font-family:var(--font-mono);color:var(--accent2);background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.3);border-radius:4px;padding:1px 6px">🎯 Auto</span>` : ''}
+            </div>
+            ${l.sentimiento ? `<div class="logro-feeling">"${l.sentimiento}"</div>` : ''}
+          </div>
+        `;
+      }).join('')}</div>`
+    : '<div class="empty-state"><div class="icon">🏆</div>No hay logros con este filtro</div>';
+}
+
+// ============================================================
+// MODAL / ADD
+// ============================================================
+function openAddModal() {
+  const forms = {
+    dashboard: modalTarea,
+    tareas: modalTarea,
+    objetivos: modalObjetivo,
+    habitos: modalHabito,
+    logros: modalLogro,
+  };
+  document.getElementById('modalBody').innerHTML = (forms[currentSection] || modalTarea)();
+  document.getElementById('modalOverlay').classList.add('open');
+  // Populate tipo categories if present
+  if (document.getElementById('f_tipo') && currentSection !== 'objetivos' && currentSection !== 'logros' && currentSection !== 'habitos') {
+    populateTipoSelect('Tarea');
+  }
+}
+
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function modalTarea() {
+  return `
+    <div class="modal-title">Nueva Tarea</div>
+    <div class="form-group">
+      <label class="form-label">Nombre *</label>
+      <input class="form-input" id="f_nombre" placeholder="Ej: Llamar al banco" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <div style="display:flex;gap:6px">
+          <select class="form-select" id="f_tipo" style="flex:1"></select>
+          <button type="button" onclick="addTipoCategoria()" style="padding:0 12px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prioridad</label>
+        <select class="form-select" id="f_prio">
+          <option>P1</option><option>P2</option><option selected>P3</option><option>P4</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-select" id="f_estado">
+          <option value="pendiente">Pendiente</option>
+          <option value="progreso">En progreso</option>
+          <option value="completada">Completada</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="f_fecha" value="${todayStr()}" />
+      </div>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="f_rec" style="width:18px;height:18px;accent-color:var(--accent)">
+      <label class="form-label" style="margin:0">¿Es recurrente?</label>
+      <select class="form-select" id="f_freq" style="margin-left:auto;width:120px">
+        <option>Diaria</option><option>Semanal</option><option>Mensual</option>
+      </select>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.25);border-radius:8px;padding:10px 12px">
+      <input type="checkbox" id="f_midia" style="width:18px;height:18px;accent-color:var(--accent)">
+      <label class="form-label" style="margin:0;color:var(--accent)">📅 Incluir en Mi Día de hoy</label>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.3);border-radius:8px;padding:10px 12px">
+      <input type="checkbox" id="f_obj" style="width:18px;height:18px;accent-color:var(--accent2)">
+      <label class="form-label" style="margin:0;color:var(--accent2)">🎯 Es un objetivo (al completarse pasa a Logros)</label>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <textarea class="form-textarea" id="f_notas" placeholder="Detalles adicionales..."></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveTarea()">Guardar tarea</button>
+  `;
+}
+
+function saveTarea() {
+  const nombre = document.getElementById('f_nombre').value.trim();
+  if (!nombre) return alert('Ingresá un nombre para la tarea');
+  const data = load(KEYS.tareas);
+  data.unshift({
+    id: uid(),
+    nombre,
+    tipo: document.getElementById('f_tipo').value,
+    estado: document.getElementById('f_estado').value,
+    prioridad: document.getElementById('f_prio').value,
+    fecha: document.getElementById('f_fecha').value,
+    recurrente: document.getElementById('f_rec').checked,
+    frecuencia: document.getElementById('f_freq').value,
+    esObjetivo: document.getElementById('f_obj').checked,
+    miDiaHoy: document.getElementById('f_midia').checked ? todayStr() : null,
+    subtareas: [],
+    notas: document.getElementById('f_notas').value,
+  });
+  save(KEYS.tareas, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+function modalObjetivo() {
+  return `
+    <div class="modal-title">Nuevo Objetivo</div>
+    <div class="form-group">
+      <label class="form-label">Objetivo *</label>
+      <input class="form-input" id="f_nombre" placeholder="Ej: Certificarme en Python" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nivel</label>
+        <select class="form-select" id="f_nivel">
+          <option>Diario</option><option selected>Semanal</option><option>Mensual</option><option>Anual</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Progreso %</label>
+        <input class="form-input" type="number" id="f_prog" value="0" min="0" max="100" />
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha inicio</label>
+        <input class="form-input" type="date" id="f_inicio" value="${todayStr()}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha límite</label>
+        <input class="form-input" type="date" id="f_limite" value="${todayStr()}" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <textarea class="form-textarea" id="f_notas" placeholder="¿Cómo vas a lograrlo?"></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveObjetivo()">Guardar objetivo</button>
+  `;
+}
+
+function saveObjetivo() {
+  const nombre = document.getElementById('f_nombre').value.trim();
+  if (!nombre) return alert('Ingresá el objetivo');
+  const data = load(KEYS.objetivos);
+  data.unshift({
+    id: uid(),
+    nombre,
+    nivel: document.getElementById('f_nivel').value,
+    estado: 'Activo',
+    fechaInicio: document.getElementById('f_inicio').value,
+    fechaLimite: document.getElementById('f_limite').value,
+    progreso: parseInt(document.getElementById('f_prog').value) || 0,
+    notas: document.getElementById('f_notas').value,
+  });
+  save(KEYS.objetivos, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+function modalHabito() {
+  return `
+    <div class="modal-title">Nuevo Hábito</div>
+    <div class="form-group">
+      <label class="form-label">Nombre *</label>
+      <input class="form-input" id="f_nombre" placeholder="Ej: Meditar 10 minutos" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Frecuencia</label>
+        <select class="form-select" id="f_freq">
+          <option>Diario</option><option>Semanal</option><option>Lunes a Viernes</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <select class="form-select" id="f_cat">
+          <option>Personal</option><option>Salud</option><option>Estudio</option><option>Trabajo</option><option>Productividad</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Horario sugerido</label>
+      <input class="form-input" id="f_hora" placeholder="Ej: Mañana, 18:30, Antes de dormir" />
+    </div>
+    <button class="btn-primary" onclick="saveHabito()">Guardar hábito</button>
+  `;
+}
+
+function saveHabito() {
+  const nombre = document.getElementById('f_nombre').value.trim();
+  if (!nombre) return alert('Ingresá el nombre del hábito');
+  const data = load(KEYS.habitos);
+  data.push({
+    id: uid(),
+    nombre,
+    frecuencia: document.getElementById('f_freq').value,
+    horario: document.getElementById('f_hora').value || 'Sin horario',
+    racha: 0,
+    record: 0,
+    activo: true,
+    categoria: document.getElementById('f_cat').value,
+  });
+  save(KEYS.habitos, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+function modalLogro() {
+  return `
+    <div class="modal-title">Registrar Logro 🏆</div>
+    <div class="form-group">
+      <label class="form-label">¿Qué lograste? *</label>
+      <input class="form-input" id="f_nombre" placeholder="Ej: Terminé el módulo de Python" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="f_fecha" value="${todayStr()}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Impacto</label>
+        <select class="form-select" id="f_imp">
+          <option>Pequeño</option><option selected>Mediano</option><option>Grande</option><option>Extraordinario</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Categoría</label>
+      <select class="form-select" id="f_cat">
+        <option>Personal</option><option>Profesional</option><option>Estudio</option><option>Salud</option><option>Productividad</option><option>Proyecto</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">¿Cómo te sentiste?</label>
+      <textarea class="form-textarea" id="f_sent" placeholder="Ej: Muy orgulloso, fue un desafío..."></textarea>
+    </div>
+    <button class="btn-primary" onclick="saveLogro()">Registrar logro ✓</button>
+  `;
+}
+
+function saveLogro() {
+  const nombre = document.getElementById('f_nombre').value.trim();
+  if (!nombre) return alert('Describí tu logro');
+  const data = load(KEYS.logros);
+  data.unshift({
+    id: uid(),
+    nombre,
+    fecha: document.getElementById('f_fecha').value,
+    categoria: document.getElementById('f_cat').value,
+    impacto: document.getElementById('f_imp').value,
+    sentimiento: document.getElementById('f_sent').value,
+    objetivo: '',
+  });
+  save(KEYS.logros, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+// ============================================================
+// TAREA DETAIL / EDIT MODAL
+// ============================================================
+function openTareaDetail(id) {
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === id);
+  if (!t) return;
+  document.getElementById('modalBody').innerHTML = modalEditTarea(t);
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function modalEditTarea(t) {
+  const subtareasHTML = t.subtareas.map(s => `
+    <div class="subtask-edit-row" id="srow_${s.id}">
+      <div class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtaskAndSave('${t.id}','${s.id}')"></div>
+      <span class="subtask-edit-name" style="${s.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${s.nombre}</span>
+      <button class="subtask-del-btn" onclick="deleteSubtareaInModal('${t.id}','${s.id}')">×</button>
+    </div>
+  `).join('');
+
+  const selVal = (id, val) => `document.getElementById('${id}').value='${val}'`;
+
+  return `
+    <div class="modal-title">✎ Editar Tarea</div>
+
+    <div class="form-group">
+      <label class="form-label">Nombre *</label>
+      <input class="form-input" id="f_nombre" value="${escHtml(t.nombre)}" />
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Categoría</label>
+        <div style="display:flex;gap:6px">
+          <select class="form-select" id="f_tipo" style="flex:1">${getTipoCategorias().map(o => `<option ${t.tipo===o?'selected':''}>${o}</option>`).join('')}</select>
+          <button type="button" onclick="addTipoCategoria()" style="padding:0 12px;border-radius:8px;background:var(--accent);border:none;color:#fff;font-size:18px;cursor:pointer;flex-shrink:0">+</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Prioridad</label>
+        <select class="form-select" id="f_prio">
+          ${['P1','P2','P3','P4'].map(o => `<option ${t.prioridad===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-select" id="f_estado">
+          <option value="pendiente" ${t.estado==='pendiente'?'selected':''}>Pendiente</option>
+          <option value="progreso" ${t.estado==='progreso'?'selected':''}>En progreso</option>
+          <option value="completada" ${t.estado==='completada'?'selected':''}>Completada</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="f_fecha" value="${t.fecha||''}" />
+      </div>
+    </div>
+
+    <div class="form-group" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="f_rec" ${t.recurrente?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
+      <label class="form-label" style="margin:0">¿Es recurrente?</label>
+      <select class="form-select" id="f_freq" style="margin-left:auto;width:120px">
+        ${['Diaria','Semanal','Mensual'].map(o => `<option ${t.frecuencia===o?'selected':''}>${o}</option>`).join('')}
+      </select>
+    </div>
+
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.25);border-radius:8px;padding:10px 12px">
+      <input type="checkbox" id="f_midia" ${t.miDiaHoy === todayStr() ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--accent)">
+      <label class="form-label" style="margin:0;color:var(--accent)">📅 Incluir en Mi Día de hoy</label>
+    </div>
+
+    <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(124,106,247,.08);border:1px solid rgba(124,106,247,.3);border-radius:8px;padding:10px 12px">
+      <input type="checkbox" id="f_obj" ${t.esObjetivo?'checked':''} style="width:18px;height:18px;accent-color:var(--accent2)">
+      <label class="form-label" style="margin:0;color:var(--accent2)">🎯 Es un objetivo (al completarse pasa a Logros)</label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <textarea class="form-textarea" id="f_notas">${escHtml(t.notas||'')}</textarea>
+    </div>
+
+    <div class="detail-section-label">Subtareas (${t.subtareas.length})</div>
+    <div id="subtareas_container">${subtareasHTML || '<div style="color:var(--text2);font-size:13px;padding:8px 0">Sin subtareas aún</div>'}</div>
+
+    <div class="add-subtask-row">
+      <input class="add-subtask-input" id="new_subtask_input" placeholder="Nueva subtarea..." onkeydown="if(event.key==='Enter') addSubtareaInModal('${t.id}')" />
+      <button class="add-subtask-btn" onclick="addSubtareaInModal('${t.id}')">+</button>
+    </div>
+
+    <button class="btn-primary" style="margin-top:18px" onclick="saveEditTarea('${t.id}')">Guardar cambios</button>
+    <button class="btn-danger" onclick="deleteTarea('${t.id}')">Eliminar tarea</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `;
+}
+
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function saveEditTarea(id) {
+  const nombre = document.getElementById('f_nombre').value.trim();
+  if (!nombre) return alert('El nombre no puede estar vacío');
+  const data = load(KEYS.tareas);
+  const idx = data.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  data[idx] = {
+    ...data[idx],
+    nombre,
+    tipo: document.getElementById('f_tipo').value,
+    prioridad: document.getElementById('f_prio').value,
+    estado: document.getElementById('f_estado').value,
+    fecha: document.getElementById('f_fecha').value,
+    recurrente: document.getElementById('f_rec').checked,
+    frecuencia: document.getElementById('f_freq').value,
+    esObjetivo: document.getElementById('f_obj').checked,
+    miDiaHoy: document.getElementById('f_midia').checked ? todayStr() : null,
+    notas: document.getElementById('f_notas').value,
+  };
+  save(KEYS.tareas, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+function addSubtareaInModal(tareaId) {
+  const input = document.getElementById('new_subtask_input');
+  const nombre = input.value.trim();
+  if (!nombre) return;
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === tareaId);
+  if (!t) return;
+  const newSub = { id: uid(), nombre, done: false };
+  t.subtareas.push(newSub);
+  save(KEYS.tareas, data);
+  input.value = '';
+  // Re-render only the subtareas container
+  const container = document.getElementById('subtareas_container');
+  if (container) {
+    container.innerHTML = t.subtareas.map(s => `
+      <div class="subtask-edit-row" id="srow_${s.id}">
+        <div class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtaskAndSave('${tareaId}','${s.id}')"></div>
+        <span class="subtask-edit-name" style="${s.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${escHtml(s.nombre)}</span>
+        <button class="subtask-del-btn" onclick="deleteSubtareaInModal('${tareaId}','${s.id}')">×</button>
+      </div>
+    `).join('');
+  }
+}
+
+function deleteSubtareaInModal(tareaId, subId) {
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === tareaId);
+  if (!t) return;
+  t.subtareas = t.subtareas.filter(s => s.id !== subId);
+  // recalc state
+  if (t.subtareas.length > 0) {
+    if (t.subtareas.every(s => s.done)) t.estado = 'completada';
+    else if (t.subtareas.some(s => s.done)) t.estado = 'progreso';
+    else t.estado = 'pendiente';
+  }
+  save(KEYS.tareas, data);
+  const row = document.getElementById('srow_' + subId);
+  if (row) row.remove();
+  const container = document.getElementById('subtareas_container');
+  if (container && container.children.length === 0) {
+    container.innerHTML = '<div style="color:var(--text2);font-size:13px;padding:8px 0">Sin subtareas aún</div>';
+  }
+}
+
+function deleteTarea(id) {
+  if (!confirm('¿Eliminar esta tarea definitivamente?')) return;
+  const data = load(KEYS.tareas).filter(x => x.id !== id);
+  save(KEYS.tareas, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+function refreshDetailModal(tareaId) {
+  // After toggling a subtask from within the detail modal, re-open it
+  setTimeout(() => openTareaDetail(tareaId), 50);
+}
+
+// ============================================================
+// PWA INSTALL
+// ============================================================
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('installBanner').style.display = 'flex';
+});
+
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') dismissBanner();
+});
+
+function dismissBanner() {
+  document.getElementById('installBanner').style.display = 'none';
+}
+
+// ============================================================
+// OBJETIVO EDIT MODAL
+// ============================================================
+function openEditObjetivo(id) {
+  const data = load(KEYS.objetivos);
+  const o = data.find(x => x.id === id);
+  if (!o) return;
+  const opt = (v, l, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${l}</option>`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">✎ Editar Objetivo</div>
+    <div class="form-group">
+      <label class="form-label">Objetivo *</label>
+      <input class="form-input" id="eo_nombre" value="${(o.nombre||'').replace(/"/g,'&quot;')}" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nivel</label>
+        <select class="form-select" id="eo_nivel">
+          ${['Diario','Semanal','Mensual','Anual'].map(v => opt(v, v, o.nivel)).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Estado</label>
+        <select class="form-select" id="eo_estado">
+          ${['Activo','Cumplido','Abandonado'].map(v => opt(v, v, o.estado)).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Progreso % (0-100)</label>
+      <input class="form-input" type="number" id="eo_progreso" value="${o.progreso||0}" min="0" max="100" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha inicio</label>
+        <input class="form-input" type="date" id="eo_inicio" value="${o.fechaInicio||''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Fecha límite</label>
+        <input class="form-input" type="date" id="eo_limite" value="${o.fechaLimite||''}" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notas</label>
+      <textarea class="form-textarea" id="eo_notas">${o.notas||''}</textarea>
+    </div>
+    <button class="btn-primary" style="margin-top:10px" onclick="saveEditObjetivo('${o.id}')">💾 Guardar cambios</button>
+    <button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"
+      onclick="if(confirm('¿Eliminar este objetivo?')){save(KEYS.objetivos,load(KEYS.objetivos).filter(x=>x.id!=='${o.id}'));closeModal();renderSection(currentSection);}">🗑 Eliminar objetivo</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function saveEditObjetivo(id) {
+  const nombre = document.getElementById('eo_nombre').value.trim();
+  if (!nombre) return alert('El nombre no puede estar vacío');
+  const data = load(KEYS.objetivos);
+  const idx = data.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  data[idx] = {
+    ...data[idx],
+    nombre,
+    nivel: document.getElementById('eo_nivel').value,
+    estado: document.getElementById('eo_estado').value,
+    progreso: Math.min(100, Math.max(0, parseInt(document.getElementById('eo_progreso').value) || 0)),
+    fechaInicio: document.getElementById('eo_inicio').value,
+    fechaLimite: document.getElementById('eo_limite').value,
+    notas: document.getElementById('eo_notas').value,
+  };
+  save(KEYS.objetivos, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+// ============================================================
+// LOGRO EDIT MODAL
+// ============================================================
+function openEditLogro(id) {
+  const data = load(KEYS.logros);
+  const l = data.find(x => x.id === id);
+  if (!l) return;
+  const opt = (v, lb, cur) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${lb}</option>`;
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">✎ Editar Logro</div>
+    <div class="form-group">
+      <label class="form-label">¿Qué lograste? *</label>
+      <input class="form-input" id="el_nombre" value="${(l.nombre||'').replace(/"/g,'&quot;')}" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Fecha</label>
+        <input class="form-input" type="date" id="el_fecha" value="${l.fecha||''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Impacto</label>
+        <select class="form-select" id="el_impacto">
+          ${['Pequeño','Mediano','Grande','Extraordinario'].map(v => opt(v, v, l.impacto)).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Categoría</label>
+      <select class="form-select" id="el_cat">
+        ${['Personal','Profesional','Estudio','Salud','Productividad','Proyecto'].map(v => opt(v, v, l.categoria)).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">¿Cómo te sentiste?</label>
+      <textarea class="form-textarea" id="el_sent">${l.sentimiento||''}</textarea>
+    </div>
+    <button class="btn-primary" style="margin-top:10px" onclick="saveEditLogro('${l.id}')">💾 Guardar cambios</button>
+    <button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"
+      onclick="if(confirm('¿Eliminar este logro?')){save(KEYS.logros,load(KEYS.logros).filter(x=>x.id!=='${l.id}'));closeModal();renderSection(currentSection);}">🗑 Eliminar logro</button>
+    <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function saveEditLogro(id) {
+  const nombre = document.getElementById('el_nombre').value.trim();
+  if (!nombre) return alert('El nombre no puede estar vacío');
+  const data = load(KEYS.logros);
+  const idx = data.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  data[idx] = {
+    ...data[idx],
+    nombre,
+    fecha: document.getElementById('el_fecha').value,
+    impacto: document.getElementById('el_impacto').value,
+    categoria: document.getElementById('el_cat').value,
+    sentimiento: document.getElementById('el_sent').value,
+  };
+  save(KEYS.logros, data);
+  closeModal();
+  renderSection(currentSection);
+}
+
+// ============================================================
+// DRAG & DROP — TAREAS
+// ============================================================
+function initDragTareas() {
+  const lista = document.getElementById('tareasLista');
+  if (!lista) return;
+  const cards = [...lista.querySelectorAll('.card[data-id]')];
+  cards.forEach(card => setupDrag(card, lista, 'card', KEYS.tareas));
+}
+
+// ============================================================
+// DRAG & DROP — OBJETIVOS
+// ============================================================
+function initDragObjetivos() {
+  const card = document.getElementById('objCard');
+  if (!card) return;
+  const items = [...card.querySelectorAll('.obj-item[data-id]')];
+  items.forEach(item => setupDrag(item, card, 'obj-item', KEYS.objetivos));
+}
+
+// ============================================================
+// DRAG ENGINE (touch + mouse)
+// ============================================================
+function setupDrag(el, container, itemClass, storageKey) {
+  const handle = el.querySelector('.drag-handle');
+  if (!handle) return;
+
+  let dragEl = null, ghost = null, startY = 0, offsetY = 0;
+
+  function onStart(e) {
+    dragEl = el;
+    const touch = e.touches ? e.touches[0] : e;
+    startY = touch.clientY;
+
+    // Create ghost
+    ghost = dragEl.cloneNode(true);
+    ghost.style.cssText = `
+      position:fixed; left:${dragEl.getBoundingClientRect().left}px;
+      top:${dragEl.getBoundingClientRect().top}px;
+      width:${dragEl.offsetWidth}px; opacity:0.85; z-index:500;
+      pointer-events:none; transform:scale(1.03) rotate(0.8deg);
+      box-shadow:0 12px 32px rgba(0,0,0,.5); border-radius:14px;
+      background:var(--surface2); transition:none;
+    `;
+    document.body.appendChild(ghost);
+    dragEl.classList.add('dragging');
+    e.preventDefault();
+  }
+
+  function onMove(e) {
+    if (!ghost) return;
+    const touch = e.touches ? e.touches[0] : e;
+    const dy = touch.clientY - startY;
+    ghost.style.top = (parseFloat(ghost.style.top) + (touch.clientY - (parseFloat(ghost.style.top) + ghost.offsetHeight/2 + startY - startY))) + 'px';
+
+    const rect = ghost.getBoundingClientRect();
+    const ghostCenter = rect.top + rect.height / 2;
+    ghost.style.top = (touch.clientY - ghost.offsetHeight / 2) + 'px';
+
+    // Highlight target
+    container.querySelectorAll('.' + itemClass).forEach(item => {
+      item.classList.remove('drag-over');
+      const r = item.getBoundingClientRect();
+      if (item !== dragEl && touch.clientY > r.top && touch.clientY < r.bottom) {
+        item.classList.add('drag-over');
+      }
+    });
+    e.preventDefault();
+  }
+
+  function onEnd(e) {
+    if (!ghost || !dragEl) return;
+    ghost.remove(); ghost = null;
+    dragEl.classList.remove('dragging');
+
+    const touch = e.changedTouches ? e.changedTouches[0] : e;
+    let targetEl = null;
+    container.querySelectorAll('.' + itemClass).forEach(item => {
+      item.classList.remove('drag-over');
+      const r = item.getBoundingClientRect();
+      if (item !== dragEl && touch.clientY > r.top && touch.clientY < r.bottom) {
+        targetEl = item;
+      }
+    });
+
+    if (targetEl) {
+      const fromId = dragEl.dataset.id;
+      const toId = targetEl.dataset.id;
+      const data = load(storageKey);
+      const fromIdx = data.findIndex(x => x.id === fromId);
+      const toIdx = data.findIndex(x => x.id === toId);
+      if (fromIdx !== -1 && toIdx !== -1) {
+        const [moved] = data.splice(fromIdx, 1);
+        data.splice(toIdx, 0, moved);
+        save(storageKey, data);
+        renderSection(currentSection);
+      }
+    }
+    dragEl = null;
+  }
+
+  // Touch events (Android)
+  handle.addEventListener('touchstart', onStart, { passive: false });
+  document.addEventListener('touchmove', onMove, { passive: false });
+  document.addEventListener('touchend', onEnd);
+
+  // Mouse events (desktop)
+  handle.addEventListener('mousedown', onStart);
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onEnd);
+}
+
+
+// ============================================================
+// CATEGORÍAS DE TIPO DE TAREA (personalizables)
+// ============================================================
+const TIPO_KEY = 'ag_tipo_categorias';
+
+function getTipoCategorias() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(TIPO_KEY));
+    return Array.isArray(stored) ? stored : [];
+  } catch { return []; }
+}
+
+function saveTipoCategorias(cats) {
+  localStorage.setItem(TIPO_KEY, JSON.stringify(cats));
+}
+
+function populateTipoSelect(currentVal) {
+  const sel = document.getElementById('f_tipo');
+  if (!sel) return;
+  const cats = getTipoCategorias();
+  if (cats.length === 0) {
+    sel.innerHTML = '<option value="">-- Sin categorías aún --</option>';
+  } else {
+    sel.innerHTML = cats.map(c => `<option ${c === currentVal ? 'selected' : ''}>${c}</option>`).join('');
+  }
+}
+
+function addTipoCategoria() {
+  // Use inline modal instead of prompt() (prompt doesn't work in PWA)
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:340px">
+      <div style="font-family:var(--font-display);font-size:18px;margin-bottom:16px">Nueva categoría</div>
+      <input id="nueva_cat_input" class="form-input" placeholder="Ej: Trabajo, Familia, Salud..." style="margin-bottom:14px" />
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="document.body.removeChild(this.closest('[style*=fixed]'))"
+          style="padding:11px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:var(--font-body);font-size:14px;cursor:pointer">
+          Cancelar
+        </button>
+        <button onclick="confirmAddCategoria(this)"
+          style="padding:11px;border-radius:8px;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer">
+          Agregar
+        </button>
+      </div>
+      <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:12px">
+        <div style="font-size:11px;font-family:var(--font-mono);color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Categorías actuales</div>
+        <div id="cat_list_preview" style="display:flex;flex-wrap:wrap;gap:6px">${
+          getTipoCategorias().length
+            ? getTipoCategorias().map(c => `<span style="font-size:12px;font-family:var(--font-mono);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:3px 10px;color:var(--text2);display:flex;align-items:center;gap:6px">${c} <span onclick="deleteTipoCategoria('${c}',this)" style="cursor:pointer;color:var(--red);font-size:14px;line-height:1">×</span></span>`).join('')
+            : '<span style="font-size:12px;color:var(--text2)">Ninguna todavía</span>'
+        }</div>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  setTimeout(() => document.getElementById('nueva_cat_input')?.focus(), 100);
+  // Allow Enter key
+  document.getElementById('nueva_cat_input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmAddCategoria(document.querySelector('[onclick*=confirmAddCategoria]'));
+  });
+}
+
+function confirmAddCategoria(btn) {
+  const input = document.getElementById('nueva_cat_input');
+  const nombre = input?.value?.trim();
+  if (!nombre) { input?.focus(); return; }
+  const cats = getTipoCategorias();
+  if (cats.includes(nombre)) {
+    input.style.borderColor = 'var(--red)';
+    input.placeholder = 'Esa categoría ya existe';
+    input.value = '';
+    return;
+  }
+  cats.push(nombre);
+  saveTipoCategorias(cats);
+  // Close overlay
+  const overlay = btn.closest('[style*=fixed]');
+  if (overlay) document.body.removeChild(overlay);
+  // Refresh select in form
+  populateTipoSelect(nombre);
+  // Refresh task filter bar
+  renderTareasFilterBar();
+  mostrarToast('✅ Categoría "' + nombre + '" agregada');
+}
+
+function deleteTipoCategoria(nombre, el) {
+  const cats = getTipoCategorias().filter(c => c !== nombre);
+  saveTipoCategorias(cats);
+  // Remove tag from preview
+  el.closest('span').remove();
+  const preview = document.getElementById('cat_list_preview');
+  if (preview && !preview.querySelector('span')) {
+    preview.innerHTML = '<span style="font-size:12px;color:var(--text2)">Ninguna todavía</span>';
+  }
+  // Refresh select and filter bar
+  populateTipoSelect('');
+  renderTareasFilterBar();
+}
+
+function renderTareasFilterBar() {
+  const cats = getTipoCategorias();
+  const bar = document.getElementById('tareasFilter');
+  if (!bar) return;
+  // Keep the fixed filters, replace category chips
+  const fixedChips = `
+    <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+    <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
+    <div class="filter-chip" onclick="filterTareas('progreso', this)">En progreso</div>
+    <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
+    <div class="filter-chip" onclick="filterTareas('p1', this)">🔴 P1</div>
+    <div class="filter-chip" onclick="filterTareas('p2', this)">🟠 P2</div>
+    ${cats.map(c => `<div class="filter-chip" onclick="filterTareas('cat:${c}', this)">${c}</div>`).join('')}
+  `;
+  bar.innerHTML = fixedChips;
+}
+
+// ============================================================
+// PIN LOCK
+// ============================================================
+const CORRECT_PIN = '321';
+let pinBuffer = '';
+
+function pinPress(digit) {
+  if (pinBuffer.length >= 3) return;
+  pinBuffer += digit;
+  updatePinDots();
+  if (pinBuffer.length === 3) {
+    setTimeout(checkPin, 150);
+  }
+}
+
+function pinDel() {
+  if (pinBuffer.length > 0) {
+    pinBuffer = pinBuffer.slice(0, -1);
+    updatePinDots();
+  }
+}
+
+function updatePinDots(error) {
+  for (let i = 0; i < 3; i++) {
+    const dot = document.getElementById('pd' + i);
+    dot.className = 'pin-dot';
+    if (error) dot.classList.add('error');
+    else if (i < pinBuffer.length) dot.classList.add('filled');
+  }
+}
+
+function checkPin() {
+  if (pinBuffer === CORRECT_PIN) {
+    document.getElementById('pinOverlay').classList.add('hidden');
+    document.getElementById('pinError').textContent = '';
+  } else {
+    document.getElementById('pinError').textContent = 'PIN incorrecto. Intentá de nuevo.';
+    updatePinDots(true);
+    setTimeout(() => {
+      pinBuffer = '';
+      updatePinDots();
+      document.getElementById('pinError').textContent = '';
+    }, 900);
+  }
+}
+
+// ============================================================
+// EXPORT / IMPORT
+// ============================================================
+function openExportImport() {
+  document.getElementById('modalBody').innerHTML = `
+    <div class="modal-title">💾 Exportar / Importar</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6">
+      Guardá una copia completa de tu agenda o restaurala desde un archivo previo.
+    </p>
+    <div class="export-btn-row">
+      <button class="btn-export" onclick="exportData()">⬇️ Exportar base de datos</button>
+      <button class="btn-import" onclick="document.getElementById('importFileInput').click()">⬆️ Importar base de datos</button>
+    </div>
+    <button class="btn-secondary" style="margin-top:14px" onclick="closeModal()">Cancelar</button>
+  `;
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function exportData() {
+  const backup = {
+    version: 1,
+    exportDate: new Date().toISOString(),
+    tareas: load(KEYS.tareas),
+    objetivos: load(KEYS.objetivos),
+    habitos: load(KEYS.habitos),
+    logros: load(KEYS.logros),
+    habits_today: load(KEYS.habits_today),
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `mi-agenda-backup-${todayStr()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  closeModal();
+}
+
+function handleImportFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const backup = JSON.parse(e.target.result);
+      if (!backup.tareas || !backup.logros) {
+        alert('Archivo inválido. Asegurate de usar un backup de Mi Agenda.');
+        return;
+      }
+      if (!confirm('¿Restaurar base de datos? Se reemplazarán todos los datos actuales.')) return;
+      save(KEYS.tareas, backup.tareas || []);
+      save(KEYS.objetivos, backup.objetivos || []);
+      save(KEYS.habitos, backup.habitos || []);
+      save(KEYS.logros, backup.logros || []);
+      save(KEYS.habits_today, backup.habits_today || []);
+      localStorage.setItem('ag_seeded', '1');
+      closeModal();
+      renderSection(currentSection);
+      alert('✅ Datos importados correctamente.');
+    } catch {
+      alert('Error al leer el archivo. Verificá que sea un backup válido.');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+seedData();
+renderDashboard();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .then(reg => {
+        console.log("SW registrado");
+        // Forzar chequeo de actualización inmediato
+        reg.update();
+      })
+      .catch(err => console.log("SW error", err));
+  });
+}
+</script>
+</body>
+</html>
