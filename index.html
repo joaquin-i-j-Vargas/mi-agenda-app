@@ -1255,7 +1255,15 @@ function renderDashboard() {
   const totalHoy = tareas.filter(t => (t.prioridad === 'P1' || miDiaSet.has(t.id)) && t.estado !== 'completada').length;
   document.getElementById('statPendientes').textContent = totalHoy;
   document.getElementById('statCompletadas').textContent = completadas.length;
-  document.getElementById('statHabitos').textContent = `${habitosDone}/${habitos.filter(h=>h.activo).length}`;
+  const _d2 = new Date().getDay();
+  const _lv2 = _d2 >= 1 && _d2 <= 5;
+  const habitosHoy = habitos.filter(h => {
+    if (!h.activo) return false;
+    if (h.frecuencia === 'Diario') return true;
+    if (h.frecuencia === 'Lunes a Viernes' && _lv2) return true;
+    return false;
+  }).length;
+  document.getElementById('statHabitos').textContent = `${habitosDone}/${habitosHoy}`;
   document.getElementById('statLogros').textContent = logrosSemana;
 
   // Mi Día — manuales + P1 automáticas (sin duplicados)
@@ -1278,7 +1286,14 @@ function renderDashboard() {
     : '<div class="empty-state" style="padding:12px"><div class="icon" style="font-size:22px">✨</div>Sin tareas P2 pendientes</div>';
 
   // Habitos
-  const h = habitos.filter(x => x.activo && x.frecuencia === 'Diario').slice(0, 4);
+  const diasSemana = new Date().getDay(); // 0=Dom,1=Lun...5=Vie,6=Sab
+  const esLunesAViernes = diasSemana >= 1 && diasSemana <= 5;
+  const h = habitos.filter(x => {
+    if (!x.activo) return false;
+    if (x.frecuencia === 'Diario') return true;
+    if (x.frecuencia === 'Lunes a Viernes' && esLunesAViernes) return true;
+    return false;
+  }).slice(0, 5);
   document.getElementById('dashHabitosList').innerHTML = h.map(hab => {
     const ht = habitsToday.find(x => x.id === hab.id && isToday(x.fecha));
     const done = ht?.done || false;
@@ -1568,7 +1583,15 @@ function objItemHTML(o) {
 // ============================================================
 function renderHabitos() {
   checkMidnightReset();
-  const data = load(KEYS.habitos).filter(h => h.activo);
+  const _dow = new Date().getDay();
+  const _esLV = _dow >= 1 && _dow <= 5;
+  const data = load(KEYS.habitos).filter(h => {
+    if (!h.activo) return false;
+    if (h.frecuencia === 'Diario') return true;
+    if (h.frecuencia === 'Lunes a Viernes' && _esLV) return true;
+    if (h.frecuencia === 'Semanal') return true; // always show weekly
+    return false;
+  });
   const habitsToday = load(KEYS.habits_today);
   const done = data.filter(h => habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done)).length;
   document.getElementById('habitosCount').textContent = `${done}/${data.length}`;
@@ -1662,7 +1685,7 @@ function openEditHabito(id) {
       '<label class="form-label" style="margin:0">Habito activo</label></div>' +
     '<button class="btn-primary" style="margin-top:10px" onclick="saveEditHabito(\'' + h.id + '\')">💾 Guardar cambios</button>' +
     '<button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"' +
-      ' onclick="if(confirm(\'¿Eliminar este habito?\')){save(KEYS.habitos,load(KEYS.habitos).filter(x=>x.id!==\'' + h.id + '\'));closeModal();renderSection(currentSection);}">🗑 Eliminar habito</button>' +
+      ' onclick="customConfirm(\'¿Eliminar este hábito?\', () => { save(KEYS.habitos,load(KEYS.habitos).filter(x=>x.id!==\'' + h.id + '\'));closeModal();renderSection(currentSection); })">🗑 Eliminar hábito</button>' +
     '<button class="btn-secondary" onclick="closeModal()">Cancelar</button>';
   document.getElementById('modalOverlay').classList.add('open');
 }
@@ -2158,11 +2181,11 @@ function deleteSubtareaInModal(tareaId, subId) {
 }
 
 function deleteTarea(id) {
-  if (!confirm('¿Eliminar esta tarea definitivamente?')) return;
-  const data = load(KEYS.tareas).filter(x => x.id !== id);
-  save(KEYS.tareas, data);
-  closeModal();
-  renderSection(currentSection);
+  customConfirm('¿Eliminar esta tarea?', () => {
+    save(KEYS.tareas, load(KEYS.tareas).filter(x => x.id !== id));
+    closeModal();
+    renderSection(currentSection);
+  });
 }
 
 function refreshDetailModal(tareaId) {
@@ -2241,7 +2264,7 @@ function openEditObjetivo(id) {
     </div>
     <button class="btn-primary" style="margin-top:10px" onclick="saveEditObjetivo('${o.id}')">💾 Guardar cambios</button>
     <button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"
-      onclick="if(confirm('¿Eliminar este objetivo?')){save(KEYS.objetivos,load(KEYS.objetivos).filter(x=>x.id!=='${o.id}'));closeModal();renderSection(currentSection);}">🗑 Eliminar objetivo</button>
+      onclick="customConfirm('¿Eliminar este objetivo?', () => { save(KEYS.objetivos, load(KEYS.objetivos).filter(x=>x.id!=='${o.id}')); closeModal(); renderSection(currentSection); })">🗑 Eliminar objetivo</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `;
   document.getElementById('modalOverlay').classList.add('open');
@@ -2306,7 +2329,7 @@ function openEditLogro(id) {
     </div>
     <button class="btn-primary" style="margin-top:10px" onclick="saveEditLogro('${l.id}')">💾 Guardar cambios</button>
     <button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"
-      onclick="if(confirm('¿Eliminar este logro?')){save(KEYS.logros,load(KEYS.logros).filter(x=>x.id!=='${l.id}'));closeModal();renderSection(currentSection);}">🗑 Eliminar logro</button>
+      onclick="customConfirm('¿Eliminar este logro?', () => { save(KEYS.logros, load(KEYS.logros).filter(x=>x.id!=='${l.id}')); closeModal(); renderSection(currentSection); })">🗑 Eliminar logro</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `;
   document.getElementById('modalOverlay').classList.add('open');
@@ -2560,6 +2583,51 @@ function renderTareasFilterBar() {
   bar.innerHTML = fixedChips;
 }
 
+
+// ============================================================
+// CONFIRM MODAL (reemplaza confirm() nativo que muestra la URL)
+// ============================================================
+
+function doImport(backup) {
+  save(KEYS.tareas, backup.tareas || []);
+  save(KEYS.objetivos, backup.objetivos || []);
+  save(KEYS.habitos, backup.habitos || []);
+  save(KEYS.logros, backup.logros || []);
+  save(KEYS.habits_today, backup.habits_today || []);
+  if (backup.tipo_categorias) localStorage.setItem('ag_tipo_categorias', JSON.stringify(backup.tipo_categorias));
+  if (backup.last_active_date) localStorage.setItem('ag_last_active_date', backup.last_active_date);
+  localStorage.setItem('ag_seeded', '1');
+  closeModal();
+  renderSection(currentSection);
+  mostrarToast('✅ Datos restaurados correctamente');
+}
+
+function customConfirm(mensaje, onAceptar) {
+  const overlay = document.createElement('div');
+  overlay.id = 'confirmOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px';
+  overlay.innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;width:100%;max-width:320px;text-align:center">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="font-family:var(--font-body);font-size:16px;color:var(--text);margin-bottom:20px;line-height:1.4">${mensaje}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <button onclick="document.getElementById('confirmOverlay').remove()"
+          style="padding:12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);font-family:var(--font-body);font-size:15px;cursor:pointer">
+          Cancelar
+        </button>
+        <button id="confirmAceptar"
+          style="padding:12px;border-radius:8px;background:rgba(245,101,101,.15);border:1px solid rgba(245,101,101,.4);color:var(--red);font-family:var(--font-body);font-size:15px;font-weight:600;cursor:pointer">
+          Eliminar
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('confirmAceptar').onclick = () => {
+    overlay.remove();
+    onAceptar();
+  };
+}
+
 // ============================================================
 // PIN LOCK
 // ============================================================
@@ -2655,7 +2723,10 @@ function handleImportFile(event) {
         alert('Archivo inválido. Asegurate de usar un backup de Mi Agenda.');
         return;
       }
-      if (!confirm('¿Restaurar base de datos? Se reemplazarán todos los datos actuales.')) return;
+      customConfirm('¿Restaurar base de datos? Se reemplazarán TODOS los datos actuales.', () => {
+        doImport(backup);
+      });
+      return;
       save(KEYS.tareas, backup.tareas || []);
       save(KEYS.objetivos, backup.objetivos || []);
       save(KEYS.habitos, backup.habitos || []);
