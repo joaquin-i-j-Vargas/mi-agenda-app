@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="Mi Agenda">
 <meta name="theme-color" content="#0f1117">
 <link rel="manifest" href="manifest.json">
-<title>Mi Agenda — Sistema de Productividad</title>
+<title>Mi Agenda v1.14 — Sistema de Productividad</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -979,9 +979,18 @@ header {
           <div class="stat-num" id="statPendientes">0</div>
           <div class="stat-label">P1 + Mi Día pendientes</div>
         </div>
-        <div class="stat-card green">
+        <div class="stat-card green" style="cursor:pointer" onclick="cycleCompletadasPeriod()">
           <div class="stat-num" id="statCompletadas">0</div>
-          <div class="stat-label">Completadas</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:2px">
+            <div class="stat-label" id="statCompletadasLabel">Completadas hoy</div>
+            <div style="font-size:10px;color:var(--green);font-family:var(--font-mono);opacity:0.7">▸</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:6px">
+            <div id="cp_hoy"  style="flex:1;height:2px;border-radius:1px;background:var(--green)"></div>
+            <div id="cp_sem"  style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
+            <div id="cp_mes"  style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
+            <div id="cp_anio" style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
+          </div>
         </div>
         <div class="stat-card gold">
           <div class="stat-num" id="statHabitos">0</div>
@@ -1089,7 +1098,10 @@ header {
 <!-- MODAL ADD -->
 <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
   <div class="modal" id="modalContent">
-    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div class="modal-handle" style="margin:0;position:relative;top:0;left:0;transform:none"></div>
+      <button onclick="closeModal()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text2);font-size:16px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-family:var(--font-body)">✕</button>
+    </div>
     <div id="modalBody"></div>
   </div>
 </div>
@@ -1189,6 +1201,12 @@ function isThisMonth(dateStr) {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
+function isThisYear(dateStr) {
+  if (!dateStr) return false;
+  const parts = dateStr.split('-');
+  return +parts[0] === new Date().getFullYear();
+}
+
 function isToday(dateStr) {
   return dateStr === todayStr();
 }
@@ -1251,10 +1269,17 @@ function renderDashboard() {
 
   const miDiaCount = tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').length;
   const p1Count = tareas.filter(t => t.prioridad === 'P1' && t.estado !== 'completada').length;
-  const miDiaSet = new Set(tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').map(t => t.id));
-  const totalHoy = tareas.filter(t => (t.prioridad === 'P1' || miDiaSet.has(t.id)) && t.estado !== 'completada').length;
+  const _today = todayStr();
+  const miDiaSet = new Set(tareas.filter(t => t.miDiaHoy === _today && t.estado !== 'completada').map(t => t.id));
+  const totalHoy = tareas.filter(t =>
+    t.estado !== 'completada' && (
+      t.prioridad === 'P1' ||
+      miDiaSet.has(t.id) ||
+      (t.fecha && t.fecha <= _today)
+    )
+  ).length;
   document.getElementById('statPendientes').textContent = totalHoy;
-  document.getElementById('statCompletadas').textContent = completadas.length;
+  updateCompletadasStat(tareas);
   const _d2 = new Date().getDay();
   const _lv2 = _d2 >= 1 && _d2 <= 5;
   const habitosHoy = habitos.filter(h => {
@@ -1266,16 +1291,60 @@ function renderDashboard() {
   document.getElementById('statHabitos').textContent = `${habitosDone}/${habitosHoy}`;
   document.getElementById('statLogros').textContent = logrosSemana;
 
-  // Mi Día — manuales + P1 automáticas (sin duplicados)
-  const miDiaIds = new Set(tareas.filter(t => t.miDiaHoy === todayStr() && t.estado !== 'completada').map(t => t.id));
-  const p1Auto = tareas.filter(t => t.prioridad === 'P1' && t.estado !== 'completada' && !miDiaIds.has(t.id));
+  // Mi Día — manuales + fechadas hoy/vencidas + P1 automáticas (sin duplicados)
+  const _hoy = todayStr();
+  const miDiaIds = new Set(tareas.filter(t => t.miDiaHoy === _hoy && t.estado !== 'completada').map(t => t.id));
+
+  // Tareas con fecha = hoy o fechas pasadas pendientes (vencidas)
+  const fechadasHoyOVencidas = tareas.filter(t =>
+    t.estado !== 'completada' &&
+    !miDiaIds.has(t.id) &&
+    t.fecha && t.fecha <= _hoy  // hoy o anterior
+  ).sort((a, b) => a.fecha.localeCompare(b.fecha)); // más antiguas primero
+
+  const fechadasIds = new Set(fechadasHoyOVencidas.map(t => t.id));
+
+  // P1 que no están ya en los grupos anteriores
+  const p1Auto = tareas.filter(t =>
+    t.prioridad === 'P1' &&
+    t.estado !== 'completada' &&
+    !miDiaIds.has(t.id) &&
+    !fechadasIds.has(t.id)
+  );
+
   const miDia = [
-    ...tareas.filter(t => miDiaIds.has(t.id)),
-    ...p1Auto
-  ].slice(0, 6);
-  document.getElementById('dashMiDiaCount').textContent = miDia.length;
-  document.getElementById('dashMiDiaList').innerHTML = miDia.length
-    ? miDia.map(t => taskItemHTML(t, true)).join('')
+    ...tareas.filter(t => miDiaIds.has(t.id)),   // manuales primero
+    ...fechadasHoyOVencidas,                       // fechadas hoy/vencidas
+    ...p1Auto                                      // P1 sin fecha al final
+  ];
+  // Subtareas individuales de tareas Mi Día
+  let miDiaHTML = '';
+  let miDiaTotal = 0;
+  miDia.forEach(t => {
+    const subsPend = t.subtareas ? t.subtareas.filter(s => !s.done) : [];
+    if (subsPend.length > 0) {
+      subsPend.forEach(s => {
+        miDiaTotal++;
+        miDiaHTML += `<div class="task-item">
+          <div class="subtask-check ${s.done ? 'checked' : ''}"
+            onclick="event.stopPropagation(); toggleSubtaskDashboard('${t.id}','${s.id}')"></div>
+          <div class="task-body" onclick="openTareaDetail('${t.id}')" style="cursor:pointer">
+            <div class="task-name">${s.nombre}</div>
+            <div class="task-meta">
+              <span style="font-size:10px;font-family:var(--font-mono);color:var(--accent2);background:rgba(124,106,247,.12);border:1px solid rgba(124,106,247,.3);border-radius:4px;padding:1px 6px">↳ ${t.nombre}</span>
+              <span class="priority ${{P1:'p1',P2:'p2',P3:'p3',P4:'p4'}[t.prioridad]||'p4'}">${t.prioridad}</span>
+            </div>
+          </div>
+        </div>`;
+      });
+    } else {
+      miDiaTotal++;
+      miDiaHTML += taskItemHTML(t, true);
+    }
+  });
+  document.getElementById('dashMiDiaCount').textContent = miDiaTotal;
+  document.getElementById('dashMiDiaList').innerHTML = miDiaTotal > 0
+    ? miDiaHTML
     : '<div class="empty-state" style="padding:16px"><div class="icon" style="font-size:24px">📅</div>Editá una tarea y activá "Incluir en Mi Día"</div>';
 
   // Priority tasks P2 (P1 ya están en Mi Día)
@@ -1435,7 +1504,7 @@ function taskItemHTML(t, compact) {
           <span class="priority ${prioClass}">${t.prioridad}</span>
           <span class="status ${statusClass}">${statusLabel}</span>
           ${t.esObjetivo ? `<span style="font-size:10px;font-family:var(--font-mono);background:rgba(124,106,247,.15);color:var(--accent2);border:1px solid rgba(124,106,247,.35);border-radius:5px;padding:2px 7px">🎯 Objetivo</span>` : ''}
-          ${t.fecha ? `<span class="task-date">${fmtDate(t.fecha)}</span>` : ''}
+          ${t.fecha ? `<span class="task-date" style="${t.fecha < todayStr() ? 'color:var(--red)' : ''}">${t.fecha < todayStr() ? '⚠ ' : ''}${fmtDate(t.fecha)}</span>` : ''}
           ${t.recurrente ? `<span class="task-recurr">↻ ${t.frecuencia}</span>` : ''}
         </div>
         ${subtasksHTML}
@@ -1450,6 +1519,7 @@ function toggleTarea(id) {
   if (!t) return;
   const wasCompletada = t.estado === 'completada';
   t.estado = wasCompletada ? 'pendiente' : 'completada';
+  t.fechaCompletado = wasCompletada ? null : todayStr();
   save(KEYS.tareas, data);
 
   // Si es objetivo y se acaba de completar → registrar en Logros automáticamente
@@ -1492,6 +1562,11 @@ function toggleSubtaskAndSave(tareaId, subId) {
   }
 }
 
+function toggleSubtaskDashboard(tareaId, subId) {
+  toggleSubtask(tareaId, subId);
+  renderDashboard();
+}
+
 function toggleSubtask(tareaId, subId) {
   const data = load(KEYS.tareas);
   const t = data.find(x => x.id === tareaId);
@@ -1499,10 +1574,11 @@ function toggleSubtask(tareaId, subId) {
     const s = t.subtareas.find(x => x.id === subId);
     if (s) {
       s.done = !s.done;
+      s.fechaCompletado = s.done ? todayStr() : null;
       const allDone = t.subtareas.every(x => x.done);
-      if (allDone) t.estado = 'completada';
-      else if (t.subtareas.some(x => x.done)) t.estado = 'progreso';
-      else t.estado = 'pendiente';
+      if (allDone) { t.estado = 'completada'; t.fechaCompletado = todayStr(); }
+      else if (t.subtareas.some(x => x.done)) { t.estado = 'progreso'; t.fechaCompletado = null; }
+      else { t.estado = 'pendiente'; t.fechaCompletado = null; }
       save(KEYS.tareas, data);
       renderSection(currentSection);
     }
@@ -1687,7 +1763,7 @@ function openEditHabito(id) {
     '<button style="width:100%;padding:11px;border-radius:8px;background:rgba(245,101,101,.12);border:1px solid rgba(245,101,101,.3);color:var(--red);font-family:var(--font-body);font-size:14px;font-weight:600;cursor:pointer;margin-top:8px"' +
       ' onclick="customConfirm(\'¿Eliminar este hábito?\', () => { save(KEYS.habitos,load(KEYS.habitos).filter(x=>x.id!==\'' + h.id + '\'));closeModal();renderSection(currentSection); })">🗑 Eliminar hábito</button>' +
     '<button class="btn-secondary" onclick="closeModal()">Cancelar</button>';
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
 }
 
 function saveEditHabito(id) {
@@ -1758,7 +1834,7 @@ function openAddModal() {
     logros: modalLogro,
   };
   document.getElementById('modalBody').innerHTML = (forms[currentSection] || modalTarea)();
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
   // Populate tipo categories if present
   if (document.getElementById('f_tipo') && currentSection !== 'objetivos' && currentSection !== 'logros' && currentSection !== 'habitos') {
     populateTipoSelect('Tarea');
@@ -1769,9 +1845,30 @@ function handleOverlayClick(e) {
   if (e.target === document.getElementById('modalOverlay')) closeModal();
 }
 
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
+function openModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+  history.pushState({ modal: true }, '');
 }
+
+function closeModal() {
+  const overlay = document.getElementById('modalOverlay');
+  if (!overlay.classList.contains('open')) return;
+  overlay.classList.remove('open');
+  if (history.state && history.state.modal === true) {
+    history.go(-1);
+  }
+}
+
+window.addEventListener('popstate', () => {
+  const overlay = document.getElementById('modalOverlay');
+  if (overlay && overlay.classList.contains('open')) {
+    overlay.classList.remove('open');
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
 
 function modalTarea() {
   return `
@@ -1805,8 +1902,8 @@ function modalTarea() {
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Fecha</label>
-        <input class="form-input" type="date" id="f_fecha" value="${todayStr()}" />
+        <label class="form-label">Fecha <span style="color:var(--text2);font-size:10px;font-family:var(--font-mono)">(opcional)</span></label>
+        <input class="form-input" type="date" id="f_fecha" value="" />
       </div>
     </div>
     <div class="form-group" style="display:flex;align-items:center;gap:10px">
@@ -2018,7 +2115,7 @@ function openTareaDetail(id) {
   const t = data.find(x => x.id === id);
   if (!t) return;
   document.getElementById('modalBody').innerHTML = modalEditTarea(t);
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
 }
 
 function modalEditTarea(t) {
@@ -2267,7 +2364,7 @@ function openEditObjetivo(id) {
       onclick="customConfirm('¿Eliminar este objetivo?', () => { save(KEYS.objetivos, load(KEYS.objetivos).filter(x=>x.id!=='${o.id}')); closeModal(); renderSection(currentSection); })">🗑 Eliminar objetivo</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `;
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
 }
 
 function saveEditObjetivo(id) {
@@ -2332,7 +2429,7 @@ function openEditLogro(id) {
       onclick="customConfirm('¿Eliminar este logro?', () => { save(KEYS.logros, load(KEYS.logros).filter(x=>x.id!=='${l.id}')); closeModal(); renderSection(currentSection); })">🗑 Eliminar logro</button>
     <button class="btn-secondary" onclick="closeModal()">Cancelar</button>
   `;
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
 }
 
 function saveEditLogro(id) {
@@ -2588,6 +2685,65 @@ function renderTareasFilterBar() {
 // CONFIRM MODAL (reemplaza confirm() nativo que muestra la URL)
 // ============================================================
 
+
+// ============================================================
+// COMPLETADAS — SELECTOR DE PERÍODO
+// ============================================================
+let completadasPeriod = 'hoy';
+const periodCycle = ['hoy', 'semana', 'mes', 'anio'];
+const periodLabels = {
+  hoy:    'Completadas hoy',
+  semana: 'Completadas esta semana',
+  mes:    'Completadas este mes',
+  anio:   'Completadas este año',
+};
+
+function cycleCompletadasPeriod() {
+  const idx = periodCycle.indexOf(completadasPeriod);
+  completadasPeriod = periodCycle[(idx + 1) % periodCycle.length];
+  updateCompletadasStat(load(KEYS.tareas));
+}
+
+function countCompletadasInPeriod(tareas, period) {
+  let count = 0;
+  tareas.forEach(t => {
+    if (t.estado === 'completada' && t.fechaCompletado && matchesPeriod(t.fechaCompletado, period)) {
+      count++;
+    }
+    if (t.subtareas) {
+      t.subtareas.forEach(s => {
+        if (s.done && s.fechaCompletado && matchesPeriod(s.fechaCompletado, period)) {
+          if (!(t.estado === 'completada' && t.fechaCompletado && matchesPeriod(t.fechaCompletado, period))) {
+            count++;
+          }
+        }
+      });
+    }
+  });
+  return count;
+}
+
+function matchesPeriod(dateStr, period) {
+  if (!dateStr) return false;
+  if (period === 'hoy')    return isToday(dateStr);
+  if (period === 'semana') return isThisWeek(dateStr);
+  if (period === 'mes')    return isThisMonth(dateStr);
+  if (period === 'anio')   return isThisYear(dateStr);
+  return false;
+}
+
+function updateCompletadasStat(tareas) {
+  const count = countCompletadasInPeriod(tareas, completadasPeriod);
+  const el = document.getElementById('statCompletadas');
+  const lbl = document.getElementById('statCompletadasLabel');
+  if (el) el.textContent = count;
+  if (lbl) lbl.textContent = periodLabels[completadasPeriod];
+  periodCycle.forEach(p => {
+    const bar = document.getElementById('cp_' + p);
+    if (bar) bar.style.background = p === completadasPeriod ? 'var(--green)' : 'var(--border)';
+  });
+}
+
 function doImport(backup) {
   save(KEYS.tareas, backup.tareas || []);
   save(KEYS.objetivos, backup.objetivos || []);
@@ -2689,7 +2845,7 @@ function openExportImport() {
     </div>
     <button class="btn-secondary" style="margin-top:14px" onclick="closeModal()">Cancelar</button>
   `;
-  document.getElementById('modalOverlay').classList.add('open');
+  openModal();
 }
 
 function exportData() {
@@ -2749,6 +2905,7 @@ function handleImportFile(event) {
 // ============================================================
 seedData();
 renderDashboard();
+history.replaceState({ modal: false }, '');
 </script>
 <script>
 if ("serviceWorker" in navigator) {
