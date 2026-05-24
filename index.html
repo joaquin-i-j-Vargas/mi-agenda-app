@@ -1285,8 +1285,9 @@ function renderDashboard() {
     if (!h.activo) return false;
     if (h.frecuencia === 'Diario') return true;
     if (h.frecuencia === 'Lunes a Viernes' && _lv2) return true;
+    if (h.frecuencia === 'Semanal') return true;
     return false;
-  }).length;
+  }).length; // stat solo cuenta los que aplican hoy
   document.getElementById('statHabitos').textContent = `${habitosDone}/${habitosHoy}`;
   document.getElementById('statLogros').textContent = logrosSemana;
 
@@ -1351,19 +1352,19 @@ function renderDashboard() {
   // Habitos
   const diasSemana = new Date().getDay(); // 0=Dom,1=Lun...5=Vie,6=Sab
   const esLunesAViernes = diasSemana >= 1 && diasSemana <= 5;
-  const h = habitos.filter(x => {
-    if (!x.activo) return false;
-    if (x.frecuencia === 'Diario') return true;
-    if (x.frecuencia === 'Lunes a Viernes' && esLunesAViernes) return true;
-    return false;
-  }).slice(0, 5);
+  // Dashboard: mostrar todos los activos, atenuar los que no aplican hoy
+  const h = habitos.filter(x => x.activo);
   document.getElementById('dashHabitosList').innerHTML = h.map(hab => {
     const ht = habitsToday.find(x => x.id === hab.id && isToday(x.fecha));
     const done = ht?.done || false;
-    return `<div class="habit-item">
+    const aplicaDash = hab.frecuencia === 'Diario' || hab.frecuencia === 'Semanal' || (hab.frecuencia === 'Lunes a Viernes' && esLunesAViernes);
+    return `<div class="habit-item" style="${!aplicaDash ? 'opacity:0.4' : ''}">
       <div class="habit-streak"><div class="habit-streak-num">${hab.racha}</div><div class="habit-streak-label">días</div></div>
-      <div class="habit-body"><div class="habit-name">${hab.nombre}</div><div class="habit-meta"><span class="habit-freq">${hab.horario}</span></div></div>
-      <button class="habit-done-btn ${done ? 'done' : ''}" onclick="toggleHabitToday('${hab.id}')"></button>
+      <div class="habit-body">
+        <div class="habit-name">${hab.nombre}${!aplicaDash ? ' <span style="font-size:10px;color:var(--text2)">(no aplica hoy)</span>' : ''}</div>
+        <div class="habit-meta"><span class="habit-freq">${hab.horario}</span></div>
+      </div>
+      <button class="habit-done-btn ${done ? 'done' : ''}" ${!aplicaDash ? 'disabled style="opacity:0.3;cursor:not-allowed"' : `onclick="toggleHabitToday('${hab.id}')"`}></button>
     </div>`;
   }).join('') || '<div class="empty-state"><div class="icon">🔁</div>Agregá hábitos primero</div>';
 
@@ -1656,13 +1657,15 @@ function renderHabitos() {
   checkMidnightReset();
   const _dow = new Date().getDay();
   const _esLV = _dow >= 1 && _dow <= 5;
-  const data = load(KEYS.habitos).filter(h => {
-    if (!h.activo) return false;
+  // Mostrar TODOS los hábitos activos siempre (para ver y editar)
+  // Indicar visualmente cuáles aplican hoy
+  const data = load(KEYS.habitos).filter(h => h.activo);
+  const aplicaHoy = (h) => {
     if (h.frecuencia === 'Diario') return true;
-    if (h.frecuencia === 'Lunes a Viernes' && _esLV) return true;
-    if (h.frecuencia === 'Semanal') return true; // always show weekly
-    return false;
-  });
+    if (h.frecuencia === 'Lunes a Viernes') return _esLV;
+    if (h.frecuencia === 'Semanal') return true;
+    return true;
+  };
   const habitsToday = load(KEYS.habits_today);
   const done = data.filter(h => habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done)).length;
   document.getElementById('habitosCount').textContent = `${done}/${data.length}`;
@@ -1671,18 +1674,19 @@ function renderHabitos() {
   lista.innerHTML = data.length
     ? data.map(h => {
         const isDone = !!habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done);
-        return '<div class="habit-item">' +
+        const aplica = aplicaHoy(h);
+        return '<div class="habit-item" style="' + (!aplica ? 'opacity:0.45' : '') + '">' +
           '<div class="habit-streak" style="' + (isDone ? 'border-color:var(--green)' : '') + '">' +
             '<div class="habit-streak-num" style="' + (isDone ? 'color:var(--green)' : '') + '">' + h.racha + '</div>' +
             '<div class="habit-streak-label">días</div></div>' +
           '<div class="habit-body" onclick="openEditHabito(\'' + h.id + '\')" style="cursor:pointer">' +
-            '<div class="habit-name">' + h.nombre + '</div>' +
+            '<div class="habit-name">' + h.nombre + (!aplica ? ' <span style="font-size:10px;color:var(--text2);font-family:var(--font-mono)">(no aplica hoy)</span>' : '') + '</div>' +
             '<div class="habit-meta">' +
               '<span class="habit-freq">' + h.frecuencia + ' · ' + h.horario + '</span>' +
               '<span class="habit-cat" style="' + (catColors[h.categoria]||'') + '">' + h.categoria + '</span>' +
               '<span style="font-size:10px;color:var(--text2);font-family:var(--font-mono)">Récord: ' + h.record + '</span>' +
             '</div></div>' +
-          '<button class="habit-done-btn ' + (isDone ? 'done' : '') + '" onclick="toggleHabitToday(\'' + h.id + '\')"></button>' +
+          '<button class="habit-done-btn ' + (isDone ? 'done' : '') + '" ' + (!aplica ? 'disabled style="opacity:0.3;cursor:not-allowed"' : '') + ' onclick="' + (aplica ? 'toggleHabitToday(\'' + h.id + '\')' : '') + '"></button>' +
         '</div>';
       }).join('')
     : '<div class="empty-state"><div class="icon">🔁</div>No hay hábitos activos</div>';
@@ -1710,19 +1714,63 @@ function toggleHabitToday(id) {
 function checkMidnightReset() {
   const lastDate = localStorage.getItem('ag_last_active_date');
   const today = todayStr();
-  if (lastDate && lastDate !== today) {
-    const habitos = load(KEYS.habitos);
-    const habitsYesterday = load(KEYS.habits_today).filter(x => x.fecha === lastDate);
-    let changed = false;
-    habitos.forEach(h => {
-      if (h.frecuencia === 'Diario') {
-        const completadoAyer = habitsYesterday.find(x => x.id === h.id && x.done);
-        if (!completadoAyer && h.racha > 0) { h.racha = 0; changed = true; }
-      }
-    });
-    if (changed) save(KEYS.habitos, habitos);
-    mostrarToast('🌅 Nuevo dia! Los habitos se reiniciaron.');
+  if (!lastDate || lastDate === today) {
+    localStorage.setItem('ag_last_active_date', today);
+    return;
   }
+
+  // Cambió el día — aplicar lógica por frecuencia
+  const habitos = load(KEYS.habitos);
+  const allHistory = load(KEYS.habits_today);
+  const lastDay = new Date(lastDate + 'T12:00:00');
+  const lastDow = lastDay.getDay(); // día de la semana del último acceso
+  const todayDow = new Date().getDay();
+  let changed = false;
+
+  habitos.forEach(h => {
+    if (!h.activo) return;
+
+    if (h.frecuencia === 'Diario') {
+      // Resetear racha si no se cumplió ayer
+      const completadoAyer = allHistory.find(x => x.id === h.id && x.fecha === lastDate && x.done);
+      if (!completadoAyer && h.racha > 0) {
+        h.racha = 0;
+        changed = true;
+      }
+
+    } else if (h.frecuencia === 'Lunes a Viernes') {
+      // Solo resetear si ayer fue día de semana y no lo cumplió
+      const ayerEraLV = lastDow >= 1 && lastDow <= 5;
+      if (ayerEraLV) {
+        const completadoAyer = allHistory.find(x => x.id === h.id && x.fecha === lastDate && x.done);
+        if (!completadoAyer && h.racha > 0) {
+          h.racha = 0;
+          changed = true;
+        }
+      }
+      // Si ayer fue fin de semana → no resetear, la racha sobrevive
+
+    } else if (h.frecuencia === 'Semanal') {
+      // Semanal: no resetear por día. Solo sumar si se cumplió.
+      // Si es lunes (inicio de semana nueva) y la semana pasada no se cumplió → resetear
+      if (todayDow === 1) { // es lunes
+        const inicioSemanaAnterior = new Date(lastDay);
+        inicioSemanaAnterior.setDate(lastDay.getDate() - lastDow + 1); // lunes anterior
+        const cumplioSemanaAnterior = allHistory.some(x =>
+          x.id === h.id && x.done &&
+          x.fecha >= inicioSemanaAnterior.toISOString().slice(0,10) &&
+          x.fecha <= lastDate
+        );
+        if (!cumplioSemanaAnterior && h.racha > 0) {
+          h.racha = 0;
+          changed = true;
+        }
+      }
+    }
+  });
+
+  if (changed) save(KEYS.habitos, habitos);
+  mostrarToast('🌅 ¡Nuevo día! Hábitos reiniciados.');
   localStorage.setItem('ag_last_active_date', today);
 }
 
