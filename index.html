@@ -909,6 +909,12 @@ header {
 }
 .obj-item.dragging { opacity: 0.4; }
 .obj-item.drag-over { background: rgba(124,106,247,.08); border-radius: 8px; }
+.prio-dropdown {
+  position:fixed;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:8px;z-index:300;display:flex;flex-direction:column;
+  gap:4px;box-shadow:0 8px 24px rgba(0,0,0,.4);min-width:130px;
+}
+.prio-dropdown .filter-chip { margin:0; text-align:center; }
 </style>
 </head>
 <body>
@@ -1010,13 +1016,7 @@ header {
         <div id="dashMiDiaList"></div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">🟠 Tareas P2</span>
-          <span class="card-count" id="dashPrioCount">0</span>
-        </div>
-        <div id="dashPrioList"></div>
-      </div>
+
 
       <div class="card">
         <div class="card-header">
@@ -1039,7 +1039,6 @@ header {
       <div class="filter-row" id="tareasFilter">
         <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
         <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
-        <div class="filter-chip" onclick="filterTareas('progreso', this)">En progreso</div>
         <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
         <div class="filter-chip" onclick="filterTareas('p1', this)">🔴 P1</div>
         <div class="filter-chip" onclick="filterTareas('p2', this)">🟠 P2</div>
@@ -1347,12 +1346,7 @@ function renderDashboard() {
     ? miDiaHTML
     : '<div class="empty-state" style="padding:16px"><div class="icon" style="font-size:24px">📅</div>Editá una tarea y activá "Incluir en Mi Día"</div>';
 
-  // Priority tasks P2 (P1 ya están en Mi Día)
-  const prio = tareas.filter(t => t.prioridad === 'P2' && t.estado !== 'completada').slice(0, 4);
-  document.getElementById('dashPrioCount').textContent = prio.length;
-  document.getElementById('dashPrioList').innerHTML = prio.length
-    ? prio.map(t => taskItemHTML(t, true)).join('')
-    : '<div class="empty-state" style="padding:12px"><div class="icon" style="font-size:22px">✨</div>Sin tareas P2 pendientes</div>';
+
 
   // Habitos
   const diasSemana = new Date().getDay(); // 0=Dom,1=Lun...5=Vie,6=Sab
@@ -1394,10 +1388,11 @@ function renderTareas() {
   renderTareasFilterBar();
   let data = load(KEYS.tareas);
   if (tareasFilter === 'pendiente') data = data.filter(t => t.estado === 'pendiente');
-  else if (tareasFilter === 'progreso') data = data.filter(t => t.estado === 'progreso');
   else if (tareasFilter === 'completada') data = data.filter(t => t.estado === 'completada');
   else if (tareasFilter === 'p1') data = data.filter(t => t.prioridad === 'P1');
   else if (tareasFilter === 'p2') data = data.filter(t => t.prioridad === 'P2');
+  else if (tareasFilter === 'p3') data = data.filter(t => t.prioridad === 'P3');
+  else if (tareasFilter === 'p4') data = data.filter(t => t.prioridad === 'P4');
   else if (tareasFilter.startsWith('cat:')) {
     const cat = tareasFilter.slice(4);
     data = data.filter(t => t.tipo === cat);
@@ -1480,7 +1475,7 @@ function taskItemHTML(t, compact) {
     : (t.estado === 'completada' ? 100 : 0);
 
   const statusClass = t.estado === 'completada' ? 's-done' : t.estado === 'progreso' ? 's-prog' : 's-pend';
-  const statusLabel = t.estado === 'completada' ? 'Completada' : t.estado === 'progreso' ? 'En progreso' : 'Pendiente';
+  const statusLabel = t.estado === 'completada' ? 'Completada' : 'Pendiente';
   const prioClass = { P1: 'p1', P2: 'p2', P3: 'p3', P4: 'p4' }[t.prioridad] || 'p4';
 
   const subtasksHTML = (!compact && t.subtareas.length) ? `
@@ -1504,8 +1499,8 @@ function taskItemHTML(t, compact) {
           <span class="priority ${prioClass}">${t.prioridad}</span>
           <span class="status ${statusClass}">${statusLabel}</span>
           ${t.esObjetivo ? `<span style="font-size:10px;font-family:var(--font-mono);background:rgba(124,106,247,.15);color:var(--accent2);border:1px solid rgba(124,106,247,.35);border-radius:5px;padding:2px 7px">🎯 Objetivo</span>` : ''}
-          ${t.fecha ? `<span class="task-date" style="${t.fecha < todayStr() ? 'color:var(--red)' : ''}">${t.fecha < todayStr() ? '⚠ ' : ''}${fmtDate(t.fecha)}</span>` : ''}
-          ${t.recurrente ? `<span class="task-recurr">↻ ${t.frecuencia}</span>` : ''}
+          ${t.fecha ? `<span class="task-date" style="${t.estado !== 'completada' && t.fecha < todayStr() ? 'color:var(--red)' : ''}">${t.estado !== 'completada' && t.fecha < todayStr() ? '⚠ ' : ''}${fmtDate(t.fecha)}</span>` : ''}
+
         </div>
         ${subtasksHTML}
       </div>
@@ -1897,7 +1892,6 @@ function modalTarea() {
         <label class="form-label">Estado</label>
         <select class="form-select" id="f_estado">
           <option value="pendiente">Pendiente</option>
-          <option value="progreso">En progreso</option>
           <option value="completada">Completada</option>
         </select>
       </div>
@@ -1906,13 +1900,7 @@ function modalTarea() {
         <input class="form-input" type="date" id="f_fecha" value="" />
       </div>
     </div>
-    <div class="form-group" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="f_rec" style="width:18px;height:18px;accent-color:var(--accent)">
-      <label class="form-label" style="margin:0">¿Es recurrente?</label>
-      <select class="form-select" id="f_freq" style="margin-left:auto;width:120px">
-        <option>Diaria</option><option>Semanal</option><option>Mensual</option>
-      </select>
-    </div>
+
     <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.25);border-radius:8px;padding:10px 12px">
       <input type="checkbox" id="f_midia" style="width:18px;height:18px;accent-color:var(--accent)">
       <label class="form-label" style="margin:0;color:var(--accent)">📅 Incluir en Mi Día de hoy</label>
@@ -1940,8 +1928,6 @@ function saveTarea() {
     estado: document.getElementById('f_estado').value,
     prioridad: document.getElementById('f_prio').value,
     fecha: document.getElementById('f_fecha').value,
-    recurrente: document.getElementById('f_rec').checked,
-    frecuencia: document.getElementById('f_freq').value,
     esObjetivo: document.getElementById('f_obj').checked,
     miDiaHoy: document.getElementById('f_midia').checked ? todayStr() : null,
     subtareas: [],
@@ -2157,8 +2143,7 @@ function modalEditTarea(t) {
       <div class="form-group">
         <label class="form-label">Estado</label>
         <select class="form-select" id="f_estado">
-          <option value="pendiente" ${t.estado==='pendiente'?'selected':''}>Pendiente</option>
-          <option value="progreso" ${t.estado==='progreso'?'selected':''}>En progreso</option>
+          <option value="pendiente" ${t.estado==='pendiente'||t.estado==='progreso'?'selected':''}>Pendiente</option>
           <option value="completada" ${t.estado==='completada'?'selected':''}>Completada</option>
         </select>
       </div>
@@ -2168,13 +2153,7 @@ function modalEditTarea(t) {
       </div>
     </div>
 
-    <div class="form-group" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="f_rec" ${t.recurrente?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)">
-      <label class="form-label" style="margin:0">¿Es recurrente?</label>
-      <select class="form-select" id="f_freq" style="margin-left:auto;width:120px">
-        ${['Diaria','Semanal','Mensual'].map(o => `<option ${t.frecuencia===o?'selected':''}>${o}</option>`).join('')}
-      </select>
-    </div>
+
 
     <div class="form-group" style="display:flex;align-items:center;gap:10px;background:rgba(79,156,249,.08);border:1px solid rgba(79,156,249,.25);border-radius:8px;padding:10px 12px">
       <input type="checkbox" id="f_midia" ${t.miDiaHoy === todayStr() ? 'checked' : ''} style="width:18px;height:18px;accent-color:var(--accent)">
@@ -2222,8 +2201,6 @@ function saveEditTarea(id) {
     prioridad: document.getElementById('f_prio').value,
     estado: document.getElementById('f_estado').value,
     fecha: document.getElementById('f_fecha').value,
-    recurrente: document.getElementById('f_rec').checked,
-    frecuencia: document.getElementById('f_freq').value,
     esObjetivo: document.getElementById('f_obj').checked,
     miDiaHoy: document.getElementById('f_midia').checked ? todayStr() : null,
     notas: document.getElementById('f_notas').value,
@@ -2671,10 +2648,8 @@ function renderTareasFilterBar() {
   const fixedChips = `
     <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
     <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
-    <div class="filter-chip" onclick="filterTareas('progreso', this)">En progreso</div>
     <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
-    <div class="filter-chip" onclick="filterTareas('p1', this)">🔴 P1</div>
-    <div class="filter-chip" onclick="filterTareas('p2', this)">🟠 P2</div>
+    <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)" style="position:relative">🏷 Prioridad ▾</div>
     ${cats.map(c => `<div class="filter-chip" onclick="filterTareas('cat:${c}', this)">${c}</div>`).join('')}
   `;
   bar.innerHTML = fixedChips;
@@ -2742,6 +2717,33 @@ function updateCompletadasStat(tareas) {
     const bar = document.getElementById('cp_' + p);
     if (bar) bar.style.background = p === completadasPeriod ? 'var(--green)' : 'var(--border)';
   });
+}
+
+
+function togglePrioDropdown(e) {
+  e.stopPropagation();
+  // Remove if already open
+  const existing = document.getElementById('prioDropMenu');
+  if (existing) { existing.remove(); return; }
+
+  const btn = document.getElementById('prioDropBtn');
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'prioDropMenu';
+  menu.className = 'prio-dropdown';
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.style.left = rect.left + 'px';
+  menu.innerHTML = `
+    <div class="filter-chip" onclick="filterTareas('p1',this);document.getElementById('prioDropMenu')?.remove()">🔴 P1 Urgente</div>
+    <div class="filter-chip" onclick="filterTareas('p2',this);document.getElementById('prioDropMenu')?.remove()">🟠 P2 Alta</div>
+    <div class="filter-chip" onclick="filterTareas('p3',this);document.getElementById('prioDropMenu')?.remove()">🔵 P3 Normal</div>
+    <div class="filter-chip" onclick="filterTareas('p4',this);document.getElementById('prioDropMenu')?.remove()">⚪ P4 Baja</div>
+  `;
+  document.body.appendChild(menu);
+  // Close on outside tap
+  setTimeout(() => document.addEventListener('click', () => {
+    document.getElementById('prioDropMenu')?.remove();
+  }, { once: true }), 50);
 }
 
 function doImport(backup) {
