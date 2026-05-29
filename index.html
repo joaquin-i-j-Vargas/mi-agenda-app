@@ -991,11 +991,11 @@ header {
             <div class="stat-label" id="statCompletadasLabel">Completadas hoy</div>
             <div style="font-size:10px;color:var(--green);font-family:var(--font-mono);opacity:0.7">▸</div>
           </div>
-          <div style="display:flex;gap:4px;margin-top:6px">
-            <div id="cp_hoy"  style="flex:1;height:2px;border-radius:1px;background:var(--green)"></div>
-            <div id="cp_sem"  style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
-            <div id="cp_mes"  style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
-            <div id="cp_anio" style="flex:1;height:2px;border-radius:1px;background:var(--border)"></div>
+          <div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+            <div id="cp_hoy"  style="flex:1;height:2px;border-radius:2px;background:var(--green);transition:background .4s"></div>
+            <div id="cp_sem"  style="flex:1;height:2px;border-radius:2px;background:var(--border);transition:background .4s"></div>
+            <div id="cp_mes"  style="flex:1;height:2px;border-radius:2px;background:var(--border);transition:background .4s"></div>
+            <div id="cp_anio" style="flex:1;height:2px;border-radius:2px;background:var(--border);transition:background .4s"></div>
           </div>
         </div>
         <div class="stat-card gold">
@@ -1038,10 +1038,9 @@ header {
       <p class="section-title">Proyectos & Tareas</p>
       <div class="filter-row" id="tareasFilter">
         <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+        <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)">🟢 Prioridad ▾</div>
         <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
         <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
-        <div class="filter-chip" onclick="filterTareas('p1', this)">🔴 P1</div>
-        <div class="filter-chip" onclick="filterTareas('p2', this)">🟠 P2</div>
       </div>
       <div id="tareasLista"></div>
     </div>
@@ -1256,6 +1255,7 @@ function renderSection(name) {
 // DASHBOARD
 // ============================================================
 function renderDashboard() {
+  checkMidnightReset(); // verificar al abrir el dashboard
   const tareas = load(KEYS.tareas);
   const habitos = load(KEYS.habitos);
   const logros = load(KEYS.logros);
@@ -1654,7 +1654,6 @@ function objItemHTML(o) {
 // HABITOS
 // ============================================================
 function renderHabitos() {
-  checkMidnightReset();
   const _dow = new Date().getDay();
   const _esLV = _dow >= 1 && _dow <= 5;
   // Mostrar TODOS los hábitos activos siempre (para ver y editar)
@@ -2695,9 +2694,9 @@ function renderTareasFilterBar() {
   // Keep the fixed filters, replace category chips
   const fixedChips = `
     <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+    <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)">🟢 Prioridad ▾</div>
     <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
     <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
-    <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)" style="position:relative">🏷 Prioridad ▾</div>
     ${cats.map(c => `<div class="filter-chip" onclick="filterTareas('cat:${c}', this)">${c}</div>`).join('')}
   `;
   bar.innerHTML = fixedChips;
@@ -2712,18 +2711,25 @@ function renderTareasFilterBar() {
 // ============================================================
 // COMPLETADAS — SELECTOR DE PERÍODO
 // ============================================================
-let completadasPeriod = 'hoy';
-const periodCycle = ['hoy', 'semana', 'mes', 'anio'];
+// Persistir período elegido entre sesiones
+let completadasPeriod = (() => {
+  const stored = localStorage.getItem('ag_completadas_period') || 'hoy';
+  // Migrate old 'semana' value to 'sem'
+  if (stored === 'semana') { localStorage.setItem('ag_completadas_period','sem'); return 'sem'; }
+  return stored;
+})();
+const periodCycle = ['hoy', 'sem', 'mes', 'anio'];
 const periodLabels = {
-  hoy:    'Completadas hoy',
-  semana: 'Completadas esta semana',
-  mes:    'Completadas este mes',
-  anio:   'Completadas este año',
+  hoy:  'Completadas hoy',
+  sem:  'Completadas esta semana',
+  mes:  'Completadas este mes',
+  anio: 'Completadas este año',
 };
 
 function cycleCompletadasPeriod() {
   const idx = periodCycle.indexOf(completadasPeriod);
   completadasPeriod = periodCycle[(idx + 1) % periodCycle.length];
+  localStorage.setItem('ag_completadas_period', completadasPeriod);
   updateCompletadasStat(load(KEYS.tareas));
 }
 
@@ -2748,10 +2754,10 @@ function countCompletadasInPeriod(tareas, period) {
 
 function matchesPeriod(dateStr, period) {
   if (!dateStr) return false;
-  if (period === 'hoy')    return isToday(dateStr);
-  if (period === 'semana') return isThisWeek(dateStr);
-  if (period === 'mes')    return isThisMonth(dateStr);
-  if (period === 'anio')   return isThisYear(dateStr);
+  if (period === 'hoy')  return isToday(dateStr);
+  if (period === 'sem')  return isThisWeek(dateStr);
+  if (period === 'mes')  return isThisMonth(dateStr);
+  if (period === 'anio') return isThisYear(dateStr);
   return false;
 }
 
@@ -2761,9 +2767,14 @@ function updateCompletadasStat(tareas) {
   const lbl = document.getElementById('statCompletadasLabel');
   if (el) el.textContent = count;
   if (lbl) lbl.textContent = periodLabels[completadasPeriod];
-  periodCycle.forEach(p => {
-    const bar = document.getElementById('cp_' + p);
-    if (bar) bar.style.background = p === completadasPeriod ? 'var(--green)' : 'var(--border)';
+  // Use requestAnimationFrame to ensure DOM is painted before updating bars
+  requestAnimationFrame(() => {
+    periodCycle.forEach(p => {
+      const bar = document.getElementById('cp_' + p);
+      if (!bar) return;
+      bar.style.background = p === completadasPeriod ? 'var(--green)' : 'var(--border)';
+      bar.style.height = '2px';
+    });
   });
 }
 
@@ -2782,10 +2793,10 @@ function togglePrioDropdown(e) {
   menu.style.top = (rect.bottom + 6) + 'px';
   menu.style.left = rect.left + 'px';
   menu.innerHTML = `
-    <div class="filter-chip" onclick="filterTareas('p1',this);document.getElementById('prioDropMenu')?.remove()">🔴 P1 Urgente</div>
-    <div class="filter-chip" onclick="filterTareas('p2',this);document.getElementById('prioDropMenu')?.remove()">🟠 P2 Alta</div>
-    <div class="filter-chip" onclick="filterTareas('p3',this);document.getElementById('prioDropMenu')?.remove()">🔵 P3 Normal</div>
-    <div class="filter-chip" onclick="filterTareas('p4',this);document.getElementById('prioDropMenu')?.remove()">⚪ P4 Baja</div>
+    <div class="filter-chip" style="text-align:left" onclick="filterTareas('p1',this);document.getElementById('prioDropMenu')?.remove()">🔴 P1 — Urgente</div>
+    <div class="filter-chip" style="text-align:left" onclick="filterTareas('p2',this);document.getElementById('prioDropMenu')?.remove()">🟠 P2 — Alta</div>
+    <div class="filter-chip" style="text-align:left" onclick="filterTareas('p3',this);document.getElementById('prioDropMenu')?.remove()">🔵 P3 — Normal</div>
+    <div class="filter-chip" style="text-align:left" onclick="filterTareas('p4',this);document.getElementById('prioDropMenu')?.remove()">⚪ P4 — Baja</div>
   `;
   document.body.appendChild(menu);
   // Close on outside tap
@@ -2832,6 +2843,45 @@ function customConfirm(mensaje, onAceptar) {
     overlay.remove();
     onAceptar();
   };
+}
+
+
+// ============================================================
+// RESET A LAS 00:00 ART (UTC-3) — OPCIÓN C
+// ============================================================
+function scheduleMidnightReset() {
+  // Argentina es UTC-3 (no cambia por horario de verano)
+  const ART_OFFSET = -3 * 60; // minutos
+
+  function getMsUntilMidnightART() {
+    const now = new Date();
+    // Hora actual en ART
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const artMs = utcMs + ART_OFFSET * 60000;
+    const artNow = new Date(artMs);
+
+    // Próxima medianoche en ART
+    const artMidnight = new Date(artMs);
+    artMidnight.setHours(24, 0, 0, 0); // 00:00 del día siguiente en ART
+
+    return artMidnight.getTime() - artNow.getTime();
+  }
+
+  function doSchedule() {
+    const msUntilMidnight = getMsUntilMidnightART();
+    console.log(`[Mi Agenda] Reset en ${Math.round(msUntilMidnight/60000)} minutos`);
+
+    setTimeout(() => {
+      // Es medianoche en Argentina — ejecutar reset
+      checkMidnightReset();
+      renderDashboard(); // actualizar dashboard si está visible
+      mostrarToast('🌅 ¡Nuevo día! Hábitos reiniciados.');
+      // Programar el próximo reset (24hs)
+      doSchedule();
+    }, msUntilMidnight);
+  }
+
+  doSchedule();
 }
 
 // ============================================================
@@ -2954,6 +3004,8 @@ function handleImportFile(event) {
 // INIT
 // ============================================================
 seedData();
+checkMidnightReset(); // verificar al abrir (Opción A)
+scheduleMidnightReset(); // programar timer 00:00 ART (Opción B)
 renderDashboard();
 history.replaceState({ modal: false }, '');
 </script>
