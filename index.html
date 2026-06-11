@@ -1421,10 +1421,11 @@ function renderTareas() {
   let html = renderCards(activas);
 
   if (completadas.length) {
-    const hoy = completadas.filter(t => isToday(t.fecha));
-    const semana = completadas.filter(t => !isToday(t.fecha) && isThisWeek(t.fecha));
-    const mes = completadas.filter(t => !isThisWeek(t.fecha) && isThisMonth(t.fecha));
-    const anterior = completadas.filter(t => !isThisMonth(t.fecha));
+    const getFecha = t => t.fechaCompletado || t.fecha || '';
+    const hoy = completadas.filter(t => isToday(getFecha(t)));
+    const semana = completadas.filter(t => !isToday(getFecha(t)) && isThisWeek(getFecha(t)));
+    const mes = completadas.filter(t => !isThisWeek(getFecha(t)) && isThisMonth(getFecha(t)));
+    const anterior = completadas.filter(t => !isThisMonth(getFecha(t)));
 
     const divider = (label, count) => `
       <div style="display:flex;align-items:center;gap:10px;margin:14px 0 6px">
@@ -1443,8 +1444,9 @@ function renderTareas() {
       const mesesMap = {};
       const mesesNombres = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
       anterior.forEach(t => {
-        if (!t.fecha) return;
-        const [y, m] = t.fecha.split('-');
+        const _fec = t.fechaCompletado || t.fecha || '';
+        if (!_fec) return;
+        const [y, m] = _fec.split('-');
         const key = `${y}-${m}`;
         if (!mesesMap[key]) mesesMap[key] = { label: `${mesesNombres[+m-1]} ${y}`, tareas: [] };
         mesesMap[key].tareas.push(t);
@@ -1674,7 +1676,7 @@ function renderHabitos() {
     ? data.map(h => {
         const isDone = !!habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done);
         const aplica = aplicaHoy(h);
-        return '<div class="habit-item" style="' + (!aplica ? 'opacity:0.45' : '') + '">' +
+        return '<div class="habit-item" data-id="' + h.id + '" style="' + (!aplica ? 'opacity:0.45' : '') + '">' +
           '<div class="habit-streak" style="' + (isDone ? 'border-color:var(--green)' : '') + '">' +
             '<div class="habit-streak-num" style="' + (isDone ? 'color:var(--green)' : '') + '">' + h.racha + '</div>' +
             '<div class="habit-streak-label">días</div></div>' +
@@ -1689,6 +1691,7 @@ function renderHabitos() {
         '</div>';
       }).join('')
     : '<div class="empty-state"><div class="icon">🔁</div>No hay hábitos activos</div>';
+  requestAnimationFrame(() => initHabitDrag());
 }
 
 function toggleHabitToday(id) {
@@ -2397,15 +2400,17 @@ function saveEditObjetivo(id) {
   const data = load(KEYS.objetivos);
   const idx = data.findIndex(x => x.id === id);
   if (idx < 0) return;
+  const nuevoEstado = document.getElementById('eo_estado').value;
   data[idx] = {
     ...data[idx],
     nombre,
     nivel: document.getElementById('eo_nivel').value,
-    estado: document.getElementById('eo_estado').value,
+    estado: nuevoEstado,
     progreso: Math.min(100, Math.max(0, parseInt(document.getElementById('eo_progreso').value) || 0)),
     fechaInicio: document.getElementById('eo_inicio').value,
     fechaLimite: document.getElementById('eo_limite').value,
     notas: document.getElementById('eo_notas').value,
+    fechaCumplido: nuevoEstado === 'Cumplido' && data[idx].estado !== 'Cumplido' ? todayStr() : data[idx].fechaCumplido,
   };
   save(KEYS.objetivos, data);
   closeModal();
@@ -2803,6 +2808,76 @@ function togglePrioDropdown(e) {
   setTimeout(() => document.addEventListener('click', () => {
     document.getElementById('prioDropMenu')?.remove();
   }, { once: true }), 50);
+}
+
+
+// ============================================================
+// LONG PRESS DRAG — HÁBITOS
+// ============================================================
+function initHabitDrag() {
+  const items = document.querySelectorAll('#habitosLista .habit-item[data-id]');
+  items.forEach(el => {
+    let pressTimer = null, dragging = false, dragEl = null;
+
+    el.addEventListener('touchstart', e => {
+      if (e.target.closest('.habit-done-btn')) return;
+      pressTimer = setTimeout(() => {
+        dragging = true; dragEl = el;
+        el.style.outline = '2px dashed var(--accent)';
+        el.style.opacity = '0.6';
+        mostrarToast('↕️ Arrastrá para reordenar');
+      }, 600);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', e => {
+      if (!dragging) { clearTimeout(pressTimer); return; }
+      e.preventDefault();
+      const touch = e.touches[0];
+      document.querySelectorAll('#habitosLista .habit-item[data-id]').forEach(item => {
+        item.style.background = '';
+        if (item === dragEl) return;
+        const r = item.getBoundingClientRect();
+        if (touch.clientY > r.top && touch.clientY < r.bottom) {
+          item.style.background = 'rgba(79,156,249,0.12)';
+          item.style.borderRadius = '10px';
+        }
+      });
+    }, { passive: false });
+
+    el.addEventListener('touchend', e => {
+      clearTimeout(pressTimer);
+      if (!dragEl) return;
+      dragEl.style.outline = ''; dragEl.style.opacity = '';
+      if (!dragging) { dragEl = null; return; }
+      dragging = false;
+      const touch = e.changedTouches[0];
+      let targetEl = null;
+      document.querySelectorAll('#habitosLista .habit-item[data-id]').forEach(item => {
+        item.style.background = '';
+        if (item === dragEl) return;
+        const r = item.getBoundingClientRect();
+        if (touch.clientY > r.top && touch.clientY < r.bottom) targetEl = item;
+      });
+      if (targetEl) {
+        const data = load(KEYS.habitos);
+        const fi = data.findIndex(x => x.id === dragEl.dataset.id);
+        const ti = data.findIndex(x => x.id === targetEl.dataset.id);
+        if (fi !== -1 && ti !== -1) {
+          const [moved] = data.splice(fi, 1);
+          data.splice(ti, 0, moved);
+          save(KEYS.habitos, data);
+          renderHabitos();
+        }
+      }
+      dragEl = null;
+    });
+
+    el.addEventListener('touchcancel', () => {
+      clearTimeout(pressTimer);
+      if (dragEl) { dragEl.style.outline = ''; dragEl.style.opacity = ''; }
+      dragging = false; dragEl = null;
+    });
+  });
 }
 
 function doImport(backup) {
