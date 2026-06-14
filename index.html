@@ -1037,10 +1037,8 @@ header {
     <div id="tareas" class="section">
       <p class="section-title">Proyectos & Tareas</p>
       <div class="filter-row" id="tareasFilter">
-        <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+        <div class="filter-chip active" id="estadoDropBtn" onclick="toggleEstadoDropdown(event)">📋 Estado ▾</div>
         <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)">🟢 Prioridad ▾</div>
-        <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
-        <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
       </div>
       <div id="tareasLista"></div>
     </div>
@@ -1167,7 +1165,17 @@ function seedData() {
 // UTILITIES
 // ============================================================
 function uid() { return '_' + Math.random().toString(36).slice(2, 9); }
-function todayStr() { return new Date().toISOString().slice(0, 10); }
+function todayStr() {
+  // Usar hora de Argentina (UTC-3) — evita bug de cambio de fecha a las 21:00 ART
+  const now = new Date();
+  const artOffset = -3 * 60; // UTC-3 en minutos
+  const artMs = now.getTime() + (now.getTimezoneOffset() + artOffset) * 60000;
+  const artDate = new Date(artMs);
+  const y = artDate.getFullYear();
+  const m = String(artDate.getMonth() + 1).padStart(2, '0');
+  const d = String(artDate.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
 
 function fmtDate(d) {
   if (!d) return '';
@@ -1176,8 +1184,10 @@ function fmtDate(d) {
 }
 
 function startOfWeek() {
-  const d = new Date(); d.setHours(0,0,0,0);
-  const day = d.getDay(); // 0=Sun
+  // Usar fecha ART
+  const t = todayStr().split('-');
+  const d = new Date(+t[0], +t[1]-1, +t[2]);
+  const day = d.getDay();
   d.setDate(d.getDate() - day);
   return d;
 }
@@ -1193,10 +1203,11 @@ function isThisWeek(dateStr) {
 
 function isThisMonth(dateStr) {
   if (!dateStr) return false;
-  const now = new Date();
+  // Usar fecha ART
+  const t = todayStr().split('-');
   const parts = dateStr.split('-');
   const d = new Date(+parts[0], +parts[1]-1, +parts[2]);
-  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  return d.getMonth() === +t[1]-1 && d.getFullYear() === +t[0];
 }
 
 function isThisYear(dateStr) {
@@ -1382,7 +1393,16 @@ let tareasFilter = 'todas';
 function filterTareas(f, el) {
   tareasFilter = f;
   document.querySelectorAll('#tareasFilter .filter-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
+  // Para dropdowns, activar el botón padre
+  const estadoBtn = document.getElementById('estadoDropBtn');
+  const prioBtn = document.getElementById('prioDropBtn');
+  if (['todas','pendiente','completada'].includes(f) && estadoBtn) {
+    estadoBtn.classList.add('active');
+  } else if (['p1','p2','p3','p4'].includes(f) && prioBtn) {
+    prioBtn.classList.add('active');
+  } else {
+    el?.classList.add('active');
+  }
   renderTareas();
 }
 
@@ -1727,7 +1747,9 @@ function checkMidnightReset() {
   const allHistory = load(KEYS.habits_today);
   const lastDay = new Date(lastDate + 'T12:00:00');
   const lastDow = lastDay.getDay(); // día de la semana del último acceso
-  const todayDow = new Date().getDay();
+  // Usar fecha ART para día de semana
+  const _artToday = todayStr().split('-');
+  const todayDow = new Date(+_artToday[0], +_artToday[1]-1, +_artToday[2]).getDay();
   let changed = false;
 
   habitos.forEach(h => {
@@ -2736,10 +2758,8 @@ function renderTareasFilterBar() {
   if (!bar) return;
   // Keep the fixed filters, replace category chips
   const fixedChips = `
-    <div class="filter-chip active" onclick="filterTareas('todas', this)">Todas</div>
+    <div class="filter-chip active" id="estadoDropBtn" onclick="toggleEstadoDropdown(event)">📋 Estado ▾</div>
     <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)">🟢 Prioridad ▾</div>
-    <div class="filter-chip" onclick="filterTareas('pendiente', this)">Pendientes</div>
-    <div class="filter-chip" onclick="filterTareas('completada', this)">Completadas</div>
     ${cats.map(c => `<div class="filter-chip" onclick="filterTareas('cat:${c}', this)">${c}</div>`).join('')}
   `;
   bar.innerHTML = fixedChips;
@@ -2821,6 +2841,46 @@ function updateCompletadasStat(tareas) {
   });
 }
 
+
+function toggleEstadoDropdown(e) {
+  e.stopPropagation();
+  // Cerrar si ya está abierto
+  const existing = document.getElementById('estadoDropMenu');
+  if (existing) { existing.remove(); return; }
+  // Cerrar el de prioridad si está abierto
+  document.getElementById('prioDropMenu')?.remove();
+
+  const btn = document.getElementById('estadoDropBtn');
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'estadoDropMenu';
+  menu.className = 'prio-dropdown';
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.style.left = rect.left + 'px';
+
+  const options = [
+    { label: '📋 Todas', value: 'todas' },
+    { label: '⏳ Pendientes', value: 'pendiente' },
+    { label: '✅ Completadas', value: 'completada' },
+  ];
+
+  menu.innerHTML = options.map(o =>
+    `<div class="filter-chip" style="text-align:left"
+      onclick="filterTareas('${o.value}',this);document.getElementById('estadoDropMenu')?.remove();updateEstadoDropLabel('${o.label}')"
+    >${o.label}</div>`
+  ).join('');
+
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', () => {
+    document.getElementById('estadoDropMenu')?.remove();
+  }, { once: true }), 50);
+}
+
+function updateEstadoDropLabel(label) {
+  // Actualizar el label del botón para mostrar selección activa
+  const btn = document.getElementById('estadoDropBtn');
+  if (btn) btn.textContent = label + ' ▾';
+}
 
 function togglePrioDropdown(e) {
   e.stopPropagation();
