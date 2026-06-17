@@ -1297,6 +1297,7 @@ function renderDashboard() {
     if (h.frecuencia === 'Diario') return true;
     if (h.frecuencia === 'Lunes a Viernes' && _lv2) return true;
     if (h.frecuencia === 'Semanal') return true;
+    if (h.frecuencia && h.frecuencia.includes('días/semana')) return true;
     return false;
   }).length; // stat solo cuenta los que aplican hoy
   document.getElementById('statHabitos').textContent = `${habitosDone}/${habitosHoy}`;
@@ -1369,7 +1370,9 @@ function renderDashboard() {
   document.getElementById('dashHabitosList').innerHTML = h.map(hab => {
     const ht = habitsToday.find(x => x.id === hab.id && isToday(x.fecha));
     const done = ht?.done || false;
-    const aplicaDash = hab.frecuencia === 'Diario' || hab.frecuencia === 'Semanal' || (hab.frecuencia === 'Lunes a Viernes' && esLunesAViernes);
+    const aplicaDash = hab.frecuencia === 'Diario' || hab.frecuencia === 'Semanal' ||
+      (hab.frecuencia === 'Lunes a Viernes' && esLunesAViernes) ||
+      (hab.frecuencia && hab.frecuencia.includes('días/semana'));
     return `<div class="habit-item" style="${!aplicaDash ? 'opacity:0.4' : ''}">
       <div class="habit-streak"><div class="habit-streak-num">${hab.racha}</div><div class="habit-streak-label">días</div></div>
       <div class="habit-body">
@@ -1421,6 +1424,7 @@ function renderTareas() {
   }
 
   // Separar pendientes/en progreso de completadas
+  // Separar siempre en activas y completadas para evitar duplicados
   const activas = data.filter(t => t.estado !== 'completada');
   const completadas = data.filter(t => t.estado === 'completada');
 
@@ -1428,6 +1432,14 @@ function renderTareas() {
 
   if (!data.length) {
     lista.innerHTML = '<div class="empty-state"><div class="icon">✅</div>No hay tareas con este filtro</div>';
+    return;
+  }
+
+  // Si el filtro es solo 'completada', no mostrar activas
+  if (tareasFilter === 'completada') {
+    lista.innerHTML = completadas.length
+      ? completadas.map(t => `<div class="card" data-id="${t.id}" style="display:flex;align-items:flex-start;gap:4px;padding:12px 12px 12px 8px"><div class="drag-handle"><span></span><span></span><span></span></div><div style="flex:1;min-width:0">${taskItemHTML(t, false)}</div></div>`).join('')
+      : '<div class="empty-state"><div class="icon">✅</div>No hay tareas completadas</div>';
     return;
   }
 
@@ -1448,16 +1460,22 @@ function renderTareas() {
     const mes = completadas.filter(t => !isThisWeek(getFecha(t)) && isThisMonth(getFecha(t)));
     const anterior = completadas.filter(t => !isThisMonth(getFecha(t)));
 
-    const divider = (label, count) => `
-      <div style="display:flex;align-items:center;gap:10px;margin:14px 0 6px">
-        <div style="flex:1;height:1px;background:var(--border)"></div>
-        <span style="font-size:10px;font-family:var(--font-mono);color:var(--text2);white-space:nowrap">✓ ${label} (${count})</span>
-        <div style="flex:1;height:1px;background:var(--border)"></div>
+    const collapsibleSection = (id, label, count, cards) => `
+      <div style="margin:10px 0 4px">
+        <div onclick="toggleCompletadasGroup('${id}')"
+          style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0">
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <span style="font-size:10px;font-family:var(--font-mono);color:var(--text2);white-space:nowrap;user-select:none">
+            <span id="arr_${id}" style="color:var(--accent)">▾</span> ✓ ${label} (${count})
+          </span>
+          <div style="flex:1;height:1px;background:var(--border)"></div>
+        </div>
+        <div id="grp_${id}">${cards}</div>
       </div>`;
 
-    if (hoy.length)    { html += divider('Hoy', hoy.length);           html += renderCards(hoy); }
-    if (semana.length) { html += divider('Esta semana', semana.length); html += renderCards(semana); }
-    if (mes.length)    { html += divider('Este mes', mes.length);       html += renderCards(mes); }
+    if (hoy.length)    html += collapsibleSection('hoy',    'Hoy',          hoy.length,    renderCards(hoy));
+    if (semana.length) html += collapsibleSection('semana', 'Esta semana',  semana.length, renderCards(semana));
+    if (mes.length)    html += collapsibleSection('mes',    'Este mes',     mes.length,    renderCards(mes));
 
     // Agrupar "anteriores" por mes/año específico
     if (anterior.length) {
@@ -1475,8 +1493,7 @@ function renderTareas() {
       // Ordenar de más reciente a más antiguo
       Object.keys(mesesMap).sort((a,b) => b.localeCompare(a)).forEach(key => {
         const { label, tareas } = mesesMap[key];
-        html += divider(label, tareas.length);
-        html += renderCards(tareas);
+        html += collapsibleSection('mes_' + key, label, tareas.length, renderCards(tareas));
       });
     }
   }
@@ -1686,6 +1703,17 @@ function renderHabitos() {
     if (h.frecuencia === 'Diario') return true;
     if (h.frecuencia === 'Lunes a Viernes') return _esLV;
     if (h.frecuencia === 'Semanal') return true;
+    if (h.frecuencia && h.frecuencia.includes('días/semana')) {
+      // Verificar si ya alcanzó el cupo semanal
+      const maxDias = parseInt(h.frecuencia) || 1;
+      const allHistory = load(KEYS.habits_today);
+      const inicioSemana = startOfWeek();
+      const cumplidos = allHistory.filter(x =>
+        x.id === h.id && x.done &&
+        new Date(x.fecha.split('-')[0], x.fecha.split('-')[1]-1, x.fecha.split('-')[2]) >= inicioSemana
+      ).length;
+      return cumplidos < maxDias; // aplica si no alcanzó el cupo
+    }
     return true;
   };
   const habitsToday = load(KEYS.habits_today);
@@ -1775,7 +1803,7 @@ function checkMidnightReset() {
       }
       // Si ayer fue fin de semana → no resetear, la racha sobrevive
 
-    } else if (h.frecuencia === 'Semanal') {
+    } else if (h.frecuencia === 'Semanal' || (h.frecuencia && h.frecuencia.includes('días/semana'))) {
       // Semanal: no resetear por día. Solo sumar si se cumplió.
       // Si es lunes (inicio de semana nueva) y la semana pasada no se cumplió → resetear
       if (todayDow === 1) { // es lunes
@@ -1810,7 +1838,7 @@ function openEditHabito(id) {
     '<input class="form-input" id="eh_nombre" value="' + (h.nombre||'').replace(/"/g,'&quot;') + '" /></div>' +
     '<div class="form-row">' +
       '<div class="form-group"><label class="form-label">Frecuencia</label>' +
-      '<select class="form-select" id="eh_freq">' + ['Diario','Semanal','Lunes a Viernes'].map(v => opt(v, h.frecuencia)).join('') + '</select></div>' +
+      '<select class="form-select" id="eh_freq">' + ['Diario','Lunes a Viernes','3 días/semana','2 días/semana','1 día/semana'].map(v => opt(v, h.frecuencia)).join('') + '</select></div>' +
       '<div class="form-group"><label class="form-label">Categoria</label>' +
       '<select class="form-select" id="eh_cat">' + ['Personal','Salud','Estudio','Trabajo','Productividad'].map(v => opt(v, h.categoria)).join('') + '</select></div>' +
     '</div>' +
@@ -2115,7 +2143,11 @@ function modalHabito() {
       <div class="form-group">
         <label class="form-label">Frecuencia</label>
         <select class="form-select" id="f_freq">
-          <option>Diario</option><option>Semanal</option><option>Lunes a Viernes</option>
+          <option>Diario</option>
+          <option>Lunes a Viernes</option>
+          <option>3 días/semana</option>
+          <option>2 días/semana</option>
+          <option>1 día/semana</option>
         </select>
       </div>
       <div class="form-group">
@@ -2753,16 +2785,13 @@ function deleteTipoCategoria(nombre, el) {
 }
 
 function renderTareasFilterBar() {
-  const cats = getTipoCategorias();
   const bar = document.getElementById('tareasFilter');
   if (!bar) return;
-  // Keep the fixed filters, replace category chips
-  const fixedChips = `
+  bar.innerHTML = `
     <div class="filter-chip active" id="estadoDropBtn" onclick="toggleEstadoDropdown(event)">📋 Estado ▾</div>
     <div class="filter-chip" id="prioDropBtn" onclick="togglePrioDropdown(event)">🟢 Prioridad ▾</div>
-    ${cats.map(c => `<div class="filter-chip" onclick="filterTareas('cat:${c}', this)">${c}</div>`).join('')}
+    <div class="filter-chip" id="catDropBtn" onclick="toggleCatDropdown(event)">🏷 Categoría ▾</div>
   `;
-  bar.innerHTML = fixedChips;
 }
 
 
@@ -2847,8 +2876,8 @@ function toggleEstadoDropdown(e) {
   // Cerrar si ya está abierto
   const existing = document.getElementById('estadoDropMenu');
   if (existing) { existing.remove(); return; }
-  // Cerrar el de prioridad si está abierto
   document.getElementById('prioDropMenu')?.remove();
+  document.getElementById('catDropMenu')?.remove();
 
   const btn = document.getElementById('estadoDropBtn');
   const rect = btn.getBoundingClientRect();
@@ -2908,6 +2937,44 @@ function togglePrioDropdown(e) {
   }, { once: true }), 50);
 }
 
+
+
+function toggleCompletadasGroup(id) {
+  const grp = document.getElementById('grp_' + id);
+  const arr = document.getElementById('arr_' + id);
+  if (!grp) return;
+  const isOpen = grp.style.display !== 'none';
+  grp.style.display = isOpen ? 'none' : '';
+  if (arr) arr.textContent = isOpen ? '▸' : '▾';
+}
+
+function toggleCatDropdown(e) {
+  e.stopPropagation();
+  const existing = document.getElementById('catDropMenu');
+  if (existing) { existing.remove(); return; }
+  document.getElementById('prioDropMenu')?.remove();
+  document.getElementById('estadoDropMenu')?.remove();
+
+  const cats = getTipoCategorias();
+  if (!cats.length) { mostrarToast('No hay categorías creadas aún'); return; }
+
+  const btn = document.getElementById('catDropBtn');
+  const rect = btn.getBoundingClientRect();
+  const menu = document.createElement('div');
+  menu.id = 'catDropMenu';
+  menu.className = 'prio-dropdown';
+  menu.style.top = (rect.bottom + 6) + 'px';
+  menu.style.left = rect.left + 'px';
+  menu.innerHTML = cats.map(c =>
+    `<div class="filter-chip" style="text-align:left"
+      onclick="filterTareas('cat:${c}',this);document.getElementById('catDropMenu')?.remove();document.getElementById('catDropBtn').textContent='🏷 ${c} ▾'"
+    >🏷 ${c}</div>`
+  ).join('');
+  document.body.appendChild(menu);
+  setTimeout(() => document.addEventListener('click', () => {
+    document.getElementById('catDropMenu')?.remove();
+  }, { once: true }), 50);
+}
 
 // ============================================================
 // LONG PRESS DRAG — HÁBITOS
