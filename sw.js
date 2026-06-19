@@ -1,4 +1,4 @@
-const CACHE_NAME = "mi-agenda-v14.8.2";
+const CACHE_NAME = "mi-agenda-v14.82";
 
 const urlsToCache = [
   "./",
