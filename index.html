@@ -1334,6 +1334,31 @@ function renderDashboard() {
   let miDiaHTML = '';
   let miDiaTotal = 0;
 
+  // Subtareas marcadas manualmente con ⚡ cuya tarea padre NO está en Mi Día
+  const _miDiaIdsSet = new Set(miDia.map(t => t.id));
+  const _todasTareas = load(KEYS.tareas);
+  _todasTareas.forEach(t => {
+    if (t.estado === 'completada') return;
+    if (_miDiaIdsSet.has(t.id)) return; // ya se muestra abajo junto a su tarea padre
+    (t.subtareas || []).forEach(s => {
+      if (!s.miDia || s.done) return;
+      miDiaTotal++;
+      miDiaHTML += `<div class="task-item">
+        <div class="subtask-check"
+          onclick="event.stopPropagation(); toggleSubtaskDashboard('${t.id}','${s.id}')"></div>
+        <div class="task-body" onclick="openTareaDetail('${t.id}')" style="cursor:pointer">
+          <div class="task-name">${s.nombre}</div>
+          <div class="task-meta">
+            <span style="font-size:10px;font-family:var(--font-mono);color:var(--accent);background:rgba(79,156,249,.12);border:1px solid rgba(79,156,249,.3);border-radius:4px;padding:1px 6px">⚡ ↳ ${t.nombre}</span>
+          </div>
+        </div>
+        <button onclick="event.stopPropagation(); toggleSubMiDia('${t.id}','${s.id}')"
+          title="Quitar de Mi Día"
+          style="background:none;border:1px solid var(--accent);border-radius:6px;color:var(--accent);font-size:12px;padding:3px 6px;cursor:pointer;flex-shrink:0">⚡</button>
+      </div>`;
+    });
+  });
+
   miDia.forEach(t => {
     const subsPend = t.subtareas ? t.subtareas.filter(s => !s.done) : [];
     if (subsPend.length > 0) {
@@ -1618,7 +1643,8 @@ function toggleSubMiDia(tareaId, subId) {
   // Actualizar botón visualmente sin cerrar el modal
   const modal = document.getElementById('modalOverlay');
   if (modal && modal.classList.contains('open')) {
-document.querySelectorAll(`[onclick*="toggleSubMiDia('${tareaId}','${subId}')"]`).forEach(btn => {
+    // Refrescar solo el color del botón sin recargar el modal
+    document.querySelectorAll(`[onclick*="toggleSubMiDia('${tareaId}','${subId}')"]`).forEach(btn => {
       btn.style.borderColor = s.miDia ? 'var(--accent)' : 'var(--border)';
       btn.style.color = s.miDia ? 'var(--accent)' : 'var(--text3)';
     });
@@ -3278,15 +3304,6 @@ function handleImportFile(event) {
         doImport(backup);
       });
       return;
-      save(KEYS.tareas, backup.tareas || []);
-      save(KEYS.objetivos, backup.objetivos || []);
-      save(KEYS.habitos, backup.habitos || []);
-      save(KEYS.logros, backup.logros || []);
-      save(KEYS.habits_today, backup.habits_today || []);
-      localStorage.setItem('ag_seeded', '1');
-      closeModal();
-      renderSection(currentSection);
-      alert('✅ Datos importados correctamente.');
     } catch {
       alert('Error al leer el archivo. Verificá que sea un backup válido.');
     }
