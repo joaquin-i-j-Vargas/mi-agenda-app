@@ -1333,11 +1333,13 @@ function renderDashboard() {
   // Subtareas individuales de tareas Mi Día
   let miDiaHTML = '';
   let miDiaTotal = 0;
+
   miDia.forEach(t => {
     const subsPend = t.subtareas ? t.subtareas.filter(s => !s.done) : [];
     if (subsPend.length > 0) {
       subsPend.forEach(s => {
         miDiaTotal++;
+        const subEnMiDia = s.miDia === true;
         miDiaHTML += `<div class="task-item">
           <div class="subtask-check ${s.done ? 'checked' : ''}"
             onclick="event.stopPropagation(); toggleSubtaskDashboard('${t.id}','${s.id}')"></div>
@@ -1348,6 +1350,11 @@ function renderDashboard() {
               <span class="priority ${{P1:'p1',P2:'p2',P3:'p3',P4:'p4'}[t.prioridad]||'p4'}">${t.prioridad}</span>
             </div>
           </div>
+          <button onclick="event.stopPropagation(); toggleSubMiDia('${t.id}','${s.id}')"
+            title="${subEnMiDia ? 'Quitar de Mi Día' : 'Agregar a Mi Día'}"
+            style="background:none;border:1px solid ${subEnMiDia ? 'var(--accent)' : 'var(--border)'};border-radius:6px;color:${subEnMiDia ? 'var(--accent)' : 'var(--text3)'};font-size:12px;padding:3px 6px;cursor:pointer;flex-shrink:0">
+            ${subEnMiDia ? '⚡' : '＋'}
+          </button>
         </div>`;
       });
     } else {
@@ -1598,6 +1605,28 @@ function toggleSubtaskAndSave(tareaId, subId) {
   }
 }
 
+
+function toggleSubMiDia(tareaId, subId) {
+  const data = load(KEYS.tareas);
+  const t = data.find(x => x.id === tareaId);
+  if (!t) return;
+  const s = t.subtareas.find(x => x.id === subId);
+  if (!s) return;
+  s.miDia = !s.miDia;
+  save(KEYS.tareas, data);
+  mostrarToast(s.miDia ? '⚡ Subtarea enviada a Mi Día' : 'Subtarea quitada de Mi Día');
+  // Actualizar botón visualmente sin cerrar el modal
+  const modal = document.getElementById('modalOverlay');
+  if (modal && modal.classList.contains('open')) {
+document.querySelectorAll(`[onclick*="toggleSubMiDia('${tareaId}','${subId}')"]`).forEach(btn => {
+      btn.style.borderColor = s.miDia ? 'var(--accent)' : 'var(--border)';
+      btn.style.color = s.miDia ? 'var(--accent)' : 'var(--text3)';
+    });
+  } else {
+    renderSection(currentSection);
+  }
+}
+
 function toggleSubtaskDashboard(tareaId, subId) {
   toggleSubtask(tareaId, subId);
   renderDashboard();
@@ -1700,21 +1729,25 @@ function renderHabitos() {
   // Indicar visualmente cuáles aplican hoy
   const data = load(KEYS.habitos).filter(h => h.activo);
   const aplicaHoy = (h) => {
+    // Siempre mostrar el hábito — el cupo solo afecta el RESET, no la visibilidad
     if (h.frecuencia === 'Diario') return true;
     if (h.frecuencia === 'Lunes a Viernes') return _esLV;
     if (h.frecuencia === 'Semanal') return true;
-    if (h.frecuencia && h.frecuencia.includes('días/semana')) {
-      // Verificar si ya alcanzó el cupo semanal
-      const maxDias = parseInt(h.frecuencia) || 1;
-      const allHistory = load(KEYS.habits_today);
-      const inicioSemana = startOfWeek();
-      const cumplidos = allHistory.filter(x =>
-        x.id === h.id && x.done &&
-        new Date(x.fecha.split('-')[0], x.fecha.split('-')[1]-1, x.fecha.split('-')[2]) >= inicioSemana
-      ).length;
-      return cumplidos < maxDias; // aplica si no alcanzó el cupo
-    }
+    if (h.frecuencia && h.frecuencia.includes('días/semana')) return true;
     return true;
+  };
+
+  // Calcular cupo semanal para mostrar badge informativo
+  const cupoSemanal = (h) => {
+    if (!h.frecuencia || !h.frecuencia.includes('días/semana')) return null;
+    const maxDias = parseInt(h.frecuencia) || 1;
+    const allHistory = load(KEYS.habits_today);
+    const inicioSemana = startOfWeek();
+    const cumplidos = allHistory.filter(x =>
+      x.id === h.id && x.done &&
+      new Date(x.fecha.split('-')[0], x.fecha.split('-')[1]-1, x.fecha.split('-')[2]) >= inicioSemana
+    ).length;
+    return { cumplidos, maxDias, completo: cumplidos >= maxDias };
   };
   const habitsToday = load(KEYS.habits_today);
   const done = data.filter(h => habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done)).length;
@@ -1725,6 +1758,8 @@ function renderHabitos() {
     ? data.map(h => {
         const isDone = !!habitsToday.find(x => x.id === h.id && isToday(x.fecha) && x.done);
         const aplica = aplicaHoy(h);
+        const cupo = cupoSemanal(h);
+        const cupoLabel = cupo ? ' <span style="font-size:9px;font-family:var(--font-mono);color:' + (cupo.completo ? 'var(--green)' : 'var(--gold)') + ';background:rgba(0,0,0,.2);border-radius:4px;padding:1px 5px">' + cupo.cumplidos + '/' + cupo.maxDias + '✓</span>' : '';
         return '<div class="habit-item" data-id="' + h.id + '" style="' + (!aplica ? 'opacity:0.45' : '') + '">' +
           '<div class="habit-streak" style="' + (isDone ? 'border-color:var(--green)' : '') + '">' +
             '<div class="habit-streak-num" style="' + (isDone ? 'color:var(--green)' : '') + '">' + h.racha + '</div>' +
@@ -1804,17 +1839,26 @@ function checkMidnightReset() {
       // Si ayer fue fin de semana → no resetear, la racha sobrevive
 
     } else if (h.frecuencia === 'Semanal' || (h.frecuencia && h.frecuencia.includes('días/semana'))) {
-      // Semanal: no resetear por día. Solo sumar si se cumplió.
-      // Si es lunes (inicio de semana nueva) y la semana pasada no se cumplió → resetear
-      if (todayDow === 1) { // es lunes
+      // Solo evaluar al inicio de semana nueva (lunes)
+      if (todayDow === 1) {
         const inicioSemanaAnterior = new Date(lastDay);
-        inicioSemanaAnterior.setDate(lastDay.getDate() - lastDow + 1); // lunes anterior
-        const cumplioSemanaAnterior = allHistory.some(x =>
+        inicioSemanaAnterior.setDate(lastDay.getDate() - lastDow + 1);
+        const inicioStr = inicioSemanaAnterior.toISOString().slice(0,10);
+
+        // Cuántas veces se cumplió la semana pasada
+        const vecesEnSemana = allHistory.filter(x =>
           x.id === h.id && x.done &&
-          x.fecha >= inicioSemanaAnterior.toISOString().slice(0,10) &&
+          x.fecha >= inicioStr &&
           x.fecha <= lastDate
-        );
-        if (!cumplioSemanaAnterior && h.racha > 0) {
+        ).length;
+
+        // Mínimo requerido según frecuencia
+        const minRequerido = h.frecuencia.includes('días/semana')
+          ? (parseInt(h.frecuencia) || 1)
+          : 1; // Semanal = 1 vez
+
+        // Solo resetear si NO cumplió el mínimo requerido
+        if (vecesEnSemana < minRequerido && h.racha > 0) {
           h.racha = 0;
           changed = true;
         }
@@ -2251,6 +2295,9 @@ function modalEditTarea(t) {
     <div class="subtask-edit-row" id="srow_${s.id}">
       <div class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtaskAndSave('${t.id}','${s.id}')"></div>
       <span class="subtask-edit-name" style="${s.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${s.nombre}</span>
+      <button onclick="toggleSubMiDia('${t.id}','${s.id}')"
+        title="${s.miDia ? 'Quitar de Mi Día' : 'Enviar a Mi Día'}"
+        style="background:none;border:1px solid ${s.miDia ? 'var(--accent)' : 'var(--border)'};border-radius:5px;color:${s.miDia ? 'var(--accent)' : 'var(--text3)'};font-size:11px;padding:2px 5px;cursor:pointer;margin-right:4px">${s.miDia ? '⚡' : '⚡'}</button>
       <button class="subtask-del-btn" onclick="deleteSubtareaInModal('${t.id}','${s.id}')">×</button>
     </div>
   `).join('');
@@ -2370,6 +2417,9 @@ function addSubtareaInModal(tareaId) {
       <div class="subtask-edit-row" id="srow_${s.id}">
         <div class="subtask-check ${s.done ? 'checked' : ''}" onclick="toggleSubtaskAndSave('${tareaId}','${s.id}')"></div>
         <span class="subtask-edit-name" style="${s.done ? 'text-decoration:line-through;color:var(--text2)' : ''}">${escHtml(s.nombre)}</span>
+        <button onclick="toggleSubMiDia('${tareaId}','${s.id}')"
+          title="${s.miDia ? 'Quitar de Mi Día' : 'Enviar a Mi Día'}"
+          style="background:none;border:1px solid ${s.miDia ? 'var(--accent)' : 'var(--border)'};border-radius:5px;color:${s.miDia ? 'var(--accent)' : 'var(--text3)'};font-size:11px;padding:2px 5px;cursor:pointer;margin-right:4px">⚡</button>
         <button class="subtask-del-btn" onclick="deleteSubtareaInModal('${tareaId}','${s.id}')">×</button>
       </div>
     `).join('');
